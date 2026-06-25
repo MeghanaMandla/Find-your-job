@@ -489,7 +489,7 @@ textarea.pa::placeholder{color:var(--t3)}
 
       <!-- State + keyword search -->
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <select id="indiaState" onchange="updatePortalButtons()" style="padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none;min-width:170px;cursor:pointer">
+        <select id="indiaState" style="padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none;min-width:170px;cursor:pointer">
           <option value="">🇮🇳 All India</option>
           <optgroup label="── Major Tech Cities ──">
             <option value="Bengaluru">🏙️ Bengaluru</option>
@@ -549,14 +549,8 @@ textarea.pa::placeholder{color:var(--t3)}
             <option value="Puducherry">Puducherry</option>
           </optgroup>
         </select>
-        <input id="jsearch" placeholder="Role or skill (python, data analyst, react…)" style="flex:1;min-width:160px;padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none" onkeydown="if(event.key==='Enter'){searchJobs();updatePortalButtons()}"/>
-        <button class="gh-btn" onclick="searchJobs();updatePortalButtons()">🔍 Search</button>
-      </div>
-
-      <!-- India job portal quick-launch buttons -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:10px;color:var(--t2);letter-spacing:1.5px;margin-bottom:8px">SEARCH DIRECTLY ON INDIA JOB PORTALS ↓</div>
-        <div id="portalBtns" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+        <input id="jsearch" placeholder="Role or skill (python, data analyst, react…)" style="flex:1;min-width:160px;padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none" onkeydown="if(event.key==='Enter')searchJobs()"/>
+        <button class="gh-btn" onclick="searchJobs()">🔍 Search</button>
       </div>
 
       <div class="jfilt">
@@ -736,6 +730,7 @@ const fi = document.getElementById('fi');
 let resumeText = '', allJobs = [], savedJobs = new Set();
 let currentFilteredJobs = [], jobPage = 1;
 const JOBS_PER_PAGE = 6;
+let resumeSkillsFound = [], resumeSkillsMissing = [];
 
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
@@ -851,7 +846,6 @@ async function startAnalysis() {
     document.getElementById('res').classList.add('on');
     showTab('jobs');
     document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
-    updatePortalButtons();
     checkGrammar(resumeText);
   } catch(e) {
     stopLoader();
@@ -1205,6 +1199,8 @@ async function apiCall(prompt, maxTokens) {
 function renderAll(r) {
   allJobs = r.jobs || [];
   savedJobs = new Set();
+  resumeSkillsFound   = (r.keywords||[]).filter(k=>k.status==='found').map(k=>k.word.toLowerCase());
+  resumeSkillsMissing = (r.keywords||[]).filter(k=>k.status==='missing').map(k=>k.word.toLowerCase());
 
   // Score ring
   const score = Math.round(r.score || 0);
@@ -1327,6 +1323,27 @@ function _jobCard(j) {
   const mc = m>=80?'var(--ng)':m>=65?'var(--nc)':'var(--npi)';
   const isSaved = savedJobs.has(j.title);
   const safeTitle = (j.title||'').replace(/['"]/g,'');
+  const jobText = [j.title, ...(j.tags||[]), j.description].join(' ').toLowerCase();
+
+  // Skill match breakdown — only shown after resume analysis
+  let skillSection = '';
+  if (resumeSkillsFound.length) {
+    const matched = resumeSkillsFound.filter(s => jobText.includes(s));
+    const missing = resumeSkillsMissing.filter(s => jobText.includes(s)).slice(0, 4);
+    if (matched.length || missing.length) {
+      skillSection = `<div style="margin:10px 0;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--bd)">
+        ${matched.length ? `<div style="margin-bottom:${missing.length?'6px':'0'}">
+          <span style="font-size:10px;letter-spacing:1px;color:var(--t3)">SKILLS MATCHED</span>
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${matched.map(s=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,255,136,.1);color:var(--ng);border:1px solid rgba(0,255,136,.25)">✓ ${s}</span>`).join('')}</div>
+        </div>` : ''}
+        ${missing.length ? `<div>
+          <span style="font-size:10px;letter-spacing:1px;color:var(--t3)">TO LEARN</span>
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${missing.map(s=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,0,128,.08);color:var(--npi);border:1px solid rgba(255,0,128,.2)">• ${s}</span>`).join('')}</div>
+        </div>` : ''}
+      </div>`;
+    }
+  }
+
   return `<div class="jcard" data-match="${m}" data-type="${(j.type||'').toLowerCase()}">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
       <span style="background:rgba(0,255,136,.12);color:var(--ng);border:1px solid rgba(0,255,136,.3);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:1px">🟢 OPEN</span>
@@ -1335,11 +1352,12 @@ function _jobCard(j) {
     <div class="jco">${j.company||''}</div>
     <div class="jti">${j.title||''}</div>
     <div class="jdesc">${j.description||''}</div>
-    <div class="jtags">${(j.tags||[]).map(t=>`<span class="jtag">${t}</span>`).join('')}</div>
+    ${skillSection}
     <div class="jmet">
       <span>📍 ${j.location||''}</span>
-      <span>💰 ${j.salary||''}</span>
+      ${j.salary ? `<span>💰 ${j.salary}</span>` : ''}
       <span>🕐 ${j.type||''}</span>
+      <span style="color:var(--t3);font-size:11px">via ${j.source||'Adzuna'}</span>
     </div>
     <div class="jbtns">
       <button class="japply" onclick="applyJob('${encodeURIComponent(j.applyUrl||'')}','${safeTitle}')">Apply Now ↗</button>
@@ -1417,7 +1435,6 @@ function setJobType(type, btn) {
   const cats = document.getElementById('internCats');
   cats.style.display = (type === 'internship') ? 'flex' : 'none';
   searchJobs();
-  updatePortalButtons();
 }
 
 function setCat(cat, btn) {
@@ -1487,47 +1504,6 @@ const STATE_CITY = {
   'Lakshadweep':'Kavaratti',
   'Puducherry':'Puducherry',
 };
-
-function updatePortalButtons() {
-  const state = document.getElementById('indiaState').value;
-  const city  = STATE_CITY[state] || state || 'India';
-  const loc   = state ? city + ', India' : 'India';
-  const kw    = document.getElementById('jsearch').value.trim() ||
-                (allJobs.length ? (allJobs[0]?.tags||[]).slice(0,2).join(' ') : 'software developer');
-  const q   = encodeURIComponent(kw);
-  const l   = encodeURIComponent(loc);
-  const lc  = encodeURIComponent(city);
-  const ns  = (state || 'india').toLowerCase().replace(/\s+/g,'-');
-  const kwSlug = kw.toLowerCase().replace(/\s+/g,'-');
-  const isIntern = currentJobType === 'internship';
-  const label = state ? ' · ' + (STATE_CITY[state] || state) : '';
-
-  const jobPortals = [
-    { name:'Naukri',      ico:'🟠', color:'#ff6600', url:`https://www.naukri.com/${kwSlug}-jobs-in-${ns}` },
-    { name:'LinkedIn',    ico:'🔵', color:'#0077b5', url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}` },
-    { name:'Indeed',      ico:'🔷', color:'#2164f3', url:`https://in.indeed.com/jobs?q=${q}&l=${l}` },
-    { name:'Foundit',     ico:'🟣', color:'#6600cc', url:`https://www.foundit.in/search-jobs?query=${q}&location=${lc}` },
-    { name:'Apna',        ico:'🟢', color:'#00a651', url:`https://apna.co/jobs?designation=${q}&location=${lc}` },
-    { name:'Internshala', ico:'🔴', color:'#e74c3c', url:`https://internshala.com/jobs/${kwSlug}-jobs-in-${ns}` },
-  ];
-  const internPortals = [
-    { name:'Internshala', ico:'🔴', color:'#e74c3c', url:`https://internshala.com/internships/${kwSlug}-internship-in-${ns}` },
-    { name:'Unstop',      ico:'🟡', color:'#f5a623', url:`https://unstop.com/internships?search=${q}&location=${lc}` },
-    { name:'LinkedIn',    ico:'🔵', color:'#0077b5', url:`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw+' intern')}&location=${l}` },
-    { name:'LetsIntern',  ico:'🟢', color:'#00b388', url:`https://www.letsintern.com/internships/${kwSlug}` },
-    { name:'Indeed',      ico:'🔷', color:'#2164f3', url:`https://in.indeed.com/jobs?q=${encodeURIComponent(kw+' intern')}&l=${l}` },
-    { name:'Apna',        ico:'🟢', color:'#00a651', url:`https://apna.co/jobs?designation=${encodeURIComponent(kw+' intern')}&location=${lc}` },
-  ];
-
-  const portals = isIntern ? internPortals : jobPortals;
-  document.getElementById('portalBtns').innerHTML = portals.map(p =>
-    `<a href="${p.url}" target="_blank" rel="noopener"
-      style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;border:1px solid ${p.color}44;color:${p.color};background:${p.color}11;transition:all .2s;white-space:nowrap"
-      onmouseover="this.style.background='${p.color}22'" onmouseout="this.style.background='${p.color}11'">
-      ${p.ico} ${p.name}${label}
-    </a>`
-  ).join('');
-}
 
 // ─── COVER LETTER ──────────────────────────────────────────
 async function genCoverLetter() {
@@ -1836,13 +1812,9 @@ function resetAll() {
   document.getElementById('dtit').textContent = 'Drop your resume here';
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
-  updatePortalButtons();
-  resumeText=''; allJobs=[]; savedJobs=new Set();
+  resumeText=''; allJobs=[]; savedJobs=new Set(); resumeSkillsFound=[]; resumeSkillsMissing=[];
   window.scrollTo({top:0,behavior:'smooth'});
 }
-
-// Init portal buttons on load
-updatePortalButtons();
 </script>
 </body>
 </html>
