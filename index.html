@@ -390,12 +390,65 @@ textarea.pa::placeholder{color:var(--t3)}
 
 /* ── FOOTER ── */
 .site-footer{background:var(--sf);box-shadow:0 -4px 30px var(--sd),0 -1px 0 rgba(255,255,255,.04);margin-top:60px;padding:60px 40px 40px}
-.footer-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:48px;align-items:start}
+.footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.7fr 1fr 1fr 1fr;gap:40px;align-items:start}
 .footer-brand .logo-f{font-size:22px;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--nc),var(--np));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
 .footer-brand p{font-size:13px;color:var(--t2);line-height:1.8;max-width:280px}
-.footer-social{display:flex;gap:10px;margin-top:20px}
-.soc-btn{width:38px;height:38px;border-radius:50%;background:var(--sf2);box-shadow:var(--nm-sm);border:none;color:var(--t2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;text-decoration:none}
-.soc-btn:hover{box-shadow:var(--nm-in);color:var(--nc)}
+.footer-social{display:flex;gap:9px;margin-top:20px;flex-wrap:wrap}
+.soc-btn{width:38px;height:38px;border-radius:50%;background:var(--sf2);box-shadow:var(--nm-sm);border:none;color:var(--t);font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s;text-decoration:none;letter-spacing:-.3px}
+.soc-btn:hover{box-shadow:var(--nm-in);transform:translateY(-2px)}
+.soc-btn.li:hover{color:#0A66C2}
+.soc-btn.tw:hover{color:#fff;background:#000}
+.soc-btn.wa:hover{color:#25D366}
+.soc-btn.ig:hover{color:#E1306C}
+.soc-btn.gh:hover{color:var(--nc)}
+.soc-btn.ml:hover{color:var(--na)}
+
+/* ── features showcase ── */
+.feats-section{max-width:1100px;margin:80px auto 0;padding:0 24px}
+.feats-section h2{text-align:center;font-size:22px;font-weight:800;letter-spacing:1.5px;background:linear-gradient(135deg,var(--nc),var(--np));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.feats-section .fs-sub{text-align:center;color:var(--t2);font-size:13px;margin-bottom:36px}
+.feats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
+.feat-card{background:var(--sf);border-radius:18px;padding:24px 20px;box-shadow:var(--nm);transition:box-shadow .25s,transform .25s;cursor:default}
+.feat-card:hover{box-shadow:var(--nm-in);transform:translateY(-3px)}
+.feat-card .fi{font-size:32px;margin-bottom:12px}
+.feat-card h4{font-size:13px;font-weight:700;color:var(--t);margin-bottom:6px}
+.feat-card p{font-size:12px;color:var(--t2);line-height:1.65}
+
+/* ── floating action buttons ── */
+.float-actions{position:fixed;bottom:28px;right:24px;display:flex;flex-direction:column;gap:12px;z-index:300}
+.float-fab{width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.35);transition:transform .2s,box-shadow .2s}
+.float-fab:hover{transform:scale(1.1);box-shadow:0 6px 28px rgba(0,0,0,.45)}
+.float-fab.sup-btn{background:var(--sf2);color:var(--nc)}
+.float-fab.fb-btn{background:linear-gradient(135deg,var(--np),var(--npi));color:#fff}
+
+/* support panel */
+.sup-panel{position:fixed;bottom:92px;right:24px;width:240px;background:var(--sf);border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,.4);padding:20px;z-index:299;display:none;animation:spIn .2s ease}
+@keyframes spIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+.sup-panel h4{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--t2);text-transform:uppercase;margin-bottom:14px}
+.sup-panel a,.sup-panel button.sp-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:500;color:var(--t);text-decoration:none;transition:background .2s;width:100%;text-align:left;background:none;border:none;cursor:pointer}
+.sup-panel a:hover,.sup-panel button.sp-link:hover{background:var(--sf2)}
+.sup-panel .sp-ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+
+/* feedback modal */
+.fb-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.fb-ov.on{display:flex}
+.fb-box{background:var(--sf);border-radius:24px;padding:36px 32px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative}
+.fb-box h3{font-size:20px;font-weight:800;color:var(--t);margin-bottom:4px}
+.fb-box .fb-sub{font-size:13px;color:var(--t2);margin-bottom:22px}
+.fb-close{position:absolute;top:16px;right:18px;background:none;border:none;font-size:18px;color:var(--t2);cursor:pointer}
+.fb-close:hover{color:var(--t)}
+.stars-row{display:flex;gap:8px;margin-bottom:20px}
+.stars-row span{font-size:30px;cursor:pointer;color:var(--t3);transition:color .15s,transform .15s;user-select:none}
+.stars-row span.lit,.stars-row span:hover{color:var(--na);transform:scale(1.2)}
+.fb-input{width:100%;background:var(--sf2);border:none;border-radius:12px;padding:12px 16px;color:var(--t);font-family:inherit;font-size:13px;resize:vertical;outline:none;margin-bottom:10px;box-sizing:border-box}
+.fb-input:focus{box-shadow:0 0 0 2px rgba(191,0,255,.35)}
+.fb-send{width:100%;padding:13px;border:none;border-radius:14px;font-size:14px;font-weight:700;background:linear-gradient(135deg,var(--np),var(--npi));color:#fff;cursor:pointer;transition:opacity .2s,transform .2s}
+.fb-send:hover{opacity:.88;transform:translateY(-1px)}
+
+/* linkedin tab */
+#tp-linkedin .li-section{margin-bottom:20px}
+#tp-linkedin .li-label{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--nc);text-transform:uppercase;margin-bottom:8px}
+#tp-linkedin .li-content{background:var(--sf2);border-radius:14px;padding:16px 18px;font-size:13px;color:var(--t);line-height:1.8;white-space:pre-wrap}
 .footer-col h4{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--nc);text-transform:uppercase;margin-bottom:16px}
 .footer-col ul{list-style:none}
 .footer-col ul li{margin-bottom:10px}
@@ -451,9 +504,12 @@ textarea.pa::placeholder{color:var(--t3)}
   .jpag button{padding:6px 14px;font-size:12px}
   .rmstep{gap:10px}
   .rmdot{width:30px;height:30px;font-size:12px}
-  .footer-inner{grid-template-columns:1fr;gap:28px}
+  .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
+  .footer-brand{grid-column:1/-1}
   .footer-bottom{flex-direction:column;text-align:center}
   .site-footer{padding:40px 20px 30px}
+  .float-actions{bottom:18px;right:14px}
+  .feats-section{margin-top:50px;padding:0 14px}
 }
 
 /* ── MOBILE 480px ── */
@@ -623,6 +679,7 @@ textarea.pa::placeholder{color:var(--t3)}
       <button class="tbtn" onclick="showTab('roadmap')">🗺️ Roadmap</button>
       <button class="tbtn" onclick="showTab('github')">🐙 GitHub</button>
       <button class="tbtn" onclick="showTab('grammar')">📝 Grammar</button>
+      <button class="tbtn" onclick="showTab('linkedin')">🔗 LinkedIn</button>
     </div>
     <span id="gnFilter" class="gn-effect gn-filter"></span>
     <span id="gnText"   class="gn-effect gn-text"></span>
@@ -844,6 +901,15 @@ textarea.pa::placeholder{color:var(--t3)}
     </div>
   </div>
 
+  <!-- LINKEDIN -->
+  <div class="tp" id="tp-linkedin">
+    <div class="card">
+      <h3><span class="ico">🔗</span>LinkedIn Profile Optimizer<span class="ln"></span></h3>
+      <p style="font-size:13px;color:var(--t2);margin-bottom:18px">AI-generated LinkedIn profile content tailored to your resume — copy and paste directly into LinkedIn.</p>
+      <div id="linkedin-content"><p style="color:var(--t2);font-size:14px">Upload and analyze your resume to generate optimized LinkedIn profile content.</p></div>
+    </div>
+  </div>
+
   <button class="rbtn" onclick="resetAll()">↺ Analyze Another Resume</button>
 </div>
 
@@ -989,6 +1055,48 @@ async function handleFile(file) {
   }
 }
 
+// ─── LINKEDIN PROFILE OPTIMIZER ────────────────────────────
+async function genLinkedIn(text) {
+  if (!text || text.length < 80) return;
+  const el = document.getElementById('linkedin-content');
+  el.innerHTML = '<p style="color:var(--t2);padding:30px;text-align:center;font-size:14px">🔗 Crafting your LinkedIn profile...</p>';
+  const prompt = `You are a LinkedIn profile expert. Based on the resume below, generate optimized LinkedIn profile content in JSON format:
+{
+  "headline": "Professional headline (max 220 chars, keyword-rich)",
+  "summary": "About section (3-4 sentences, first-person, compelling, end with CTA)",
+  "skills": ["skill1","skill2",...], (top 15 skills to add on LinkedIn)
+  "tips": ["tip1","tip2","tip3","tip4","tip5"] (5 actionable profile improvement tips)
+}
+Resume:
+${text.slice(0,4000)}`;
+  try {
+    const r = await callAI(prompt);
+    const json = JSON.parse(r.match(/\{[\s\S]*\}/)?.[0] || '{}');
+    if (!json.headline) throw new Error('empty');
+    el.innerHTML = `
+      <div class="li-section"><div class="li-label">Headline</div>
+        <div class="li-content">${esc(json.headline||'')}</div>
+        <button class="act act-p" style="margin-top:8px;font-size:11px;padding:6px 14px" onclick="navigator.clipboard.writeText(${JSON.stringify(json.headline||'')}).then(()=>this.textContent='✅ Copied!');setTimeout(()=>this.textContent='📋 Copy',1500)">📋 Copy</button>
+      </div>
+      <div class="li-section"><div class="li-label">About / Summary</div>
+        <div class="li-content">${esc(json.summary||'')}</div>
+        <button class="act act-p" style="margin-top:8px;font-size:11px;padding:6px 14px" onclick="navigator.clipboard.writeText(${JSON.stringify(json.summary||'')}).then(()=>this.textContent='✅ Copied!');setTimeout(()=>this.textContent='📋 Copy',1500)">📋 Copy</button>
+      </div>
+      <div class="li-section"><div class="li-label">Top Skills to Add</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+          ${(json.skills||[]).map(s=>`<span class="chip cc" style="font-size:12px;padding:4px 12px">${esc(s)}</span>`).join('')}
+        </div>
+      </div>
+      <div class="li-section"><div class="li-label">Profile Improvement Tips</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+          ${(json.tips||[]).map((t,i)=>`<div style="display:flex;gap:12px;align-items:flex-start;background:var(--sf2);border-radius:12px;padding:12px 14px"><span style="color:var(--np);font-size:18px;font-weight:800;flex-shrink:0">${i+1}</span><span style="font-size:13px;color:var(--t);line-height:1.6">${esc(t)}</span></div>`).join('')}
+        </div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--t2);padding:20px">LinkedIn optimizer unavailable right now. Try again later.</p>';
+  }
+}
+
 // ─── JD TOGGLE ─────────────────────────────────────────────
 function toggleJD() {
   const s = document.getElementById('jds');
@@ -1056,6 +1164,7 @@ async function startAnalysis() {
     document.getElementById('jsearch').value = '';
     searchJobs();
     checkGrammar(resumeText);
+    genLinkedIn(resumeText);
   } catch(e) {
     stopLoader();
     document.getElementById('ls').classList.remove('on');
@@ -2306,7 +2415,7 @@ function _setActivePill(key) {
 }
 
 function showTab(id) {
-  const ids = ['skills','jobs','feedback','rewrite','cover','interview','salary','roadmap','github','grammar'];
+  const ids = ['skills','jobs','feedback','rewrite','cover','interview','salary','roadmap','github','grammar','linkedin'];
   document.querySelectorAll('.tbtn').forEach((b,i) => b.classList.toggle('on', ids[i]===id));
   document.querySelectorAll('.tp').forEach(p => p.classList.toggle('on', p.id==='tp-'+id));
   _setActivePill({'jobs':'jobs','interview':'interview'}[id] ?? null);
@@ -3185,6 +3294,7 @@ function resetAll() {
   document.getElementById('dtit').textContent = 'Drop your resume here';
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
+  document.getElementById('linkedin-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to generate optimized LinkedIn profile content.</p>';
   resumeText=''; allJobs=[]; savedJobs=new Set(); resumeSkillsFound=[]; resumeSkillsMissing=[]; resumeRoles=[]; sortMode='match';
   _setActivePill('home');
   window.scrollTo({top:0,behavior:'smooth'});
@@ -3409,15 +3519,38 @@ function resetAll() {
 })();
 </script>
 
+<!-- ── FEATURES SHOWCASE ── -->
+<section class="feats-section">
+  <h2>EVERYTHING YOU NEED TO LAND YOUR JOB</h2>
+  <p class="fs-sub">11 AI-powered tools — all free, no sign-up required</p>
+  <div class="feats-grid">
+    <div class="feat-card"><div class="fi">📄</div><h4>ATS Resume Score</h4><p>Instant ATS compatibility score with keyword gap analysis and section-by-section breakdown.</p></div>
+    <div class="feat-card"><div class="fi">💼</div><h4>Real Job Matches</h4><p>Curated live job listings matched to your skills and experience from Adzuna India — with match % and skill highlights.</p></div>
+    <div class="feat-card"><div class="fi">🔍</div><h4>AI Resume Feedback</h4><p>Detailed review of every resume section: missing metrics, weak verbs, structure issues, and what to fix first.</p></div>
+    <div class="feat-card"><div class="fi">✏️</div><h4>AI Resume Rewrite</h4><p>Professionally rewritten resume with stronger action verbs, quantified achievements, and ATS-optimized formatting.</p></div>
+    <div class="feat-card"><div class="fi">📝</div><h4>Cover Letter Generator</h4><p>Tailored cover letter for any matched job — personalized to your resume and the specific role requirements.</p></div>
+    <div class="feat-card"><div class="fi">🎤</div><h4>Interview Prep</h4><p>Likely interview questions based on your resume with AI-suggested strong answers — practice before the real thing.</p></div>
+    <div class="feat-card"><div class="fi">💰</div><h4>Salary Insights</h4><p>Market salary ranges for your matched roles with your estimated value based on skills and experience level.</p></div>
+    <div class="feat-card"><div class="fi">🗺️</div><h4>Career Roadmap</h4><p>Step-by-step personalized learning path: what to study, certifications to get, and skills to build — with timelines.</p></div>
+    <div class="feat-card"><div class="fi">🐙</div><h4>GitHub Analyzer</h4><p>Analyze any GitHub profile — repo quality, tech stack, activity patterns, and suggestions to impress recruiters.</p></div>
+    <div class="feat-card"><div class="fi">📝</div><h4>Grammar Check</h4><p>Full grammar, spelling, and writing quality audit powered by LanguageTool — clear weak resume language instantly.</p></div>
+    <div class="feat-card"><div class="fi">🔗</div><h4>LinkedIn Optimizer</h4><p>AI-written LinkedIn headline, About section, skill list, and 5 profile tips — copy-paste ready for your profile.</p></div>
+    <div class="feat-card"><div class="fi">🎓</div><h4>Internship Search</h4><p>Dedicated internship listings with category filters — find your first role in tech, marketing, design, and more.</p></div>
+  </div>
+</section>
+
 <footer class="site-footer">
   <div class="footer-inner">
     <div class="footer-brand">
       <div class="logo-f">⚡ RESUME·AI</div>
-      <p>AI-powered career intelligence platform. Upload your resume and instantly unlock real job matches, ATS scoring, personalized feedback, and your career roadmap.</p>
+      <p>AI-powered career intelligence — 11 free tools to land your next job faster. Upload your resume and get instant results.</p>
       <div class="footer-social">
-        <a class="soc-btn" href="mailto:kjeevanreddy2003@gmail.com" title="Email us">✉️</a>
-        <a class="soc-btn" href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener" title="GitHub">⭐</a>
-        <a class="soc-btn" href="https://github.com/MeghanaMandla/Find-your-job/issues" target="_blank" rel="noopener" title="Report issue">🐛</a>
+        <a class="soc-btn li" href="https://linkedin.com/in/meghanamandla" target="_blank" rel="noopener" title="LinkedIn">in</a>
+        <a class="soc-btn tw" href="https://x.com/MeghanaMandla" target="_blank" rel="noopener" title="Twitter / X">𝕏</a>
+        <a class="soc-btn ig" href="https://instagram.com/meghanamandla" target="_blank" rel="noopener" title="Instagram">IG</a>
+        <a class="soc-btn wa" href="https://wa.me/919999999999" target="_blank" rel="noopener" title="WhatsApp">WA</a>
+        <a class="soc-btn gh" href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener" title="GitHub">GH</a>
+        <a class="soc-btn ml" href="mailto:kjeevanreddy2003@gmail.com" title="Email us">✉</a>
       </div>
     </div>
     <div class="footer-col">
@@ -3425,25 +3558,110 @@ function resetAll() {
       <ul>
         <li><a href="#" onclick="document.getElementById('fi').click();return false">Upload Resume</a></li>
         <li><a href="#" onclick="showTab('jobs');document.getElementById('res').classList.add('on');return false">Find Jobs</a></li>
+        <li><a href="#" onclick="showTab('feedback');document.getElementById('res').classList.add('on');return false">Resume Feedback</a></li>
+        <li><a href="#" onclick="showTab('rewrite');document.getElementById('res').classList.add('on');return false">AI Rewrite</a></li>
+        <li><a href="#" onclick="showTab('cover');document.getElementById('res').classList.add('on');return false">Cover Letter</a></li>
         <li><a href="#" onclick="showTab('interview');document.getElementById('res').classList.add('on');return false">Interview Prep</a></li>
         <li><a href="#" onclick="showTab('salary');document.getElementById('res').classList.add('on');return false">Salary Insights</a></li>
-        <li><a href="#" onclick="showTab('roadmap');document.getElementById('res').classList.add('on');return false">Career Roadmap</a></li>
+        <li><a href="#" onclick="showTab('linkedin');document.getElementById('res').classList.add('on');return false">LinkedIn Optimizer</a></li>
       </ul>
     </div>
     <div class="footer-col">
       <h4>Support</h4>
       <ul>
-        <li><a href="mailto:kjeevanreddy2003@gmail.com">Contact Us</a></li>
-        <li><a href="https://github.com/MeghanaMandla/Find-your-job/issues" target="_blank" rel="noopener">Report a Bug</a></li>
-        <li><a href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener">Source Code</a></li>
-        <li><a href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener">Gemini API Docs</a></li>
+        <li><a href="mailto:kjeevanreddy2003@gmail.com">📧 Email Support</a></li>
+        <li><a href="https://github.com/MeghanaMandla/Find-your-job/issues" target="_blank" rel="noopener">🐛 Report a Bug</a></li>
+        <li><a href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener">⭐ Star on GitHub</a></li>
+        <li><a href="#" onclick="openFbModal();return false">⭐ Give Feedback</a></li>
+        <li><a href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener">📖 Gemini API Docs</a></li>
+        <li><a href="https://wa.me/919999999999" target="_blank" rel="noopener">💬 WhatsApp Us</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Connect</h4>
+      <ul>
+        <li><a href="https://linkedin.com/in/meghanamandla" target="_blank" rel="noopener">🔗 LinkedIn Profile</a></li>
+        <li><a href="https://x.com/MeghanaMandla" target="_blank" rel="noopener">𝕏 Twitter / X</a></li>
+        <li><a href="https://instagram.com/meghanamandla" target="_blank" rel="noopener">📸 Instagram</a></li>
+        <li><a href="https://github.com/MeghanaMandla" target="_blank" rel="noopener">🐙 GitHub Profile</a></li>
+        <li><a href="mailto:kjeevanreddy2003@gmail.com">✉️ kjeevanreddy2003@gmail.com</a></li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
-    <p>© 2025 Resume·AI — Free &amp; Open Source. Built with ❤️</p>
+    <p>© 2025 Resume·AI — Free &amp; Open Source. Built with ❤️ by Meghana Mandla</p>
     <div class="footer-status"><span class="status-dot"></span> All systems operational</div>
   </div>
 </footer>
+<!-- ── FLOATING ACTION BUTTONS ── -->
+<div class="float-actions">
+  <button class="float-fab sup-btn" id="supFab" onclick="toggleSupPanel()" title="Customer Support">💬</button>
+  <button class="float-fab fb-btn" onclick="openFbModal()" title="Send Feedback">⭐</button>
+</div>
+
+<!-- support panel -->
+<div class="sup-panel" id="supPanel">
+  <h4>How can we help?</h4>
+  <a href="mailto:kjeevanreddy2003@gmail.com"><span class="sp-ico" style="background:rgba(255,170,0,.15)">📧</span>Email Support</a>
+  <a href="https://wa.me/919999999999" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(37,211,102,.15)">💬</span>WhatsApp Chat</a>
+  <a href="https://github.com/MeghanaMandla/Find-your-job/issues" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(0,255,255,.1)">🐛</span>Report a Bug</a>
+  <a href="https://linkedin.com/in/meghanamandla" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(10,102,194,.15)">🔗</span>LinkedIn</a>
+  <button class="sp-link" onclick="openFbModal();toggleSupPanel()"><span class="sp-ico" style="background:rgba(191,0,255,.15)">⭐</span>Give Feedback</button>
+</div>
+
+<!-- feedback modal -->
+<div class="fb-ov" id="fbOv" onclick="if(event.target===this)closeFbModal()">
+  <div class="fb-box">
+    <button class="fb-close" onclick="closeFbModal()">✕</button>
+    <h3>Share Your Feedback</h3>
+    <p class="fb-sub">Help us make Resume·AI better for everyone!</p>
+    <div class="stars-row" id="fbStars">
+      <span onclick="fbSetRating(1)">★</span>
+      <span onclick="fbSetRating(2)">★</span>
+      <span onclick="fbSetRating(3)">★</span>
+      <span onclick="fbSetRating(4)">★</span>
+      <span onclick="fbSetRating(5)">★</span>
+    </div>
+    <input class="fb-input" id="fbName" type="text" placeholder="Your name (optional)">
+    <textarea class="fb-input" id="fbMsg" rows="4" placeholder="What do you love? What can we improve?"></textarea>
+    <button class="fb-send" onclick="fbSubmit()">Send Feedback 🚀</button>
+  </div>
+</div>
+
+<script>
+// ── Support panel ──
+function toggleSupPanel(){
+  const p=document.getElementById('supPanel');
+  p.style.display = p.style.display==='block' ? 'none' : 'block';
+}
+document.addEventListener('click', e=>{
+  const p=document.getElementById('supPanel');
+  const fab=document.getElementById('supFab');
+  if(p.style.display==='block' && !p.contains(e.target) && !fab.contains(e.target)) p.style.display='none';
+});
+
+// ── Feedback modal ──
+let fbRating=0;
+function openFbModal(){ document.getElementById('fbOv').classList.add('on'); }
+function closeFbModal(){ document.getElementById('fbOv').classList.remove('on'); }
+function fbSetRating(n){
+  fbRating=n;
+  document.querySelectorAll('#fbStars span').forEach((s,i)=>s.classList.toggle('lit',i<n));
+}
+function fbSubmit(){
+  const name=document.getElementById('fbName').value.trim();
+  const msg=document.getElementById('fbMsg').value.trim();
+  if(!msg){ document.getElementById('fbMsg').focus(); return; }
+  const stars='★'.repeat(fbRating)+'☆'.repeat(5-fbRating);
+  const subject=encodeURIComponent(`Resume·AI Feedback ${stars}`);
+  const body=encodeURIComponent(`Rating: ${stars}\nFrom: ${name||'Anonymous'}\n\n${msg}`);
+  window.open(`mailto:kjeevanreddy2003@gmail.com?subject=${subject}&body=${body}`,'_blank');
+  closeFbModal();
+  document.getElementById('fbName').value='';
+  document.getElementById('fbMsg').value='';
+  fbRating=0;
+  document.querySelectorAll('#fbStars span').forEach(s=>s.classList.remove('lit'));
+}
+</script>
 </body>
 </html>
