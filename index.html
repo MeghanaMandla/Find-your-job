@@ -80,14 +80,29 @@ body.light #bg-canvas,body.light .aurora{opacity:.2}
 .ck-decline:hover{color:var(--t)}
 
 /* ── dark-mode reminder toast ── */
-#dm-toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);
-  background:var(--sf);border-radius:16px;padding:14px 22px;box-shadow:0 8px 32px rgba(0,0,0,.45);
+/* theme-switch toast — positions near the theme button in nav */
+#dm-toast{position:fixed;top:64px;right:16px;transform:translateY(-12px);
+  background:var(--sf);border-radius:16px;padding:12px 18px 12px 14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06);
   font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;z-index:600;
-  opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;display:flex;align-items:center;gap:10px}
-#dm-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
-#dm-toast .dm-icon{font-size:20px}
+  opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;
+  display:flex;align-items:center;gap:10px}
+#dm-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+/* arrow pointing UP toward the nav theme button */
+#dm-toast::before{content:'';position:absolute;bottom:100%;right:28px;
+  border:7px solid transparent;border-bottom-color:var(--sf)}
+/* bouncing arrow label above the toast */
+#dm-toast .dm-arrow{position:absolute;bottom:calc(100% + 14px);right:22px;
+  font-size:20px;animation:dm-bob 1s ease-in-out infinite;pointer-events:none;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+@keyframes dm-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+#dm-toast .dm-icon{font-size:18px}
+#dm-toast .dm-text{flex:1}
 #dm-toast button{background:linear-gradient(135deg,var(--nc),var(--np));border:none;border-radius:10px;
-  color:#fff;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;margin-left:6px;white-space:nowrap}
+  color:#fff;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;white-space:nowrap}
+#dm-toast .dm-close{background:none;border:none;color:var(--t3);font-size:15px;
+  cursor:pointer;padding:0 0 0 4px;line-height:1}
+#dm-toast .dm-close:hover{color:var(--t)}
 
 /* ── theme-hint tooltip ── */
 .thm-wrap{position:relative;display:inline-flex}
@@ -2513,7 +2528,7 @@ function toggleTheme() {
   const light = document.body.classList.toggle('light');
   document.getElementById('thmBtn').textContent = light ? '☀️' : '🌙';
   localStorage.setItem('theme', light ? 'light' : 'dark');
-  if (light) setTimeout(showDmToast, 600); // show "switch to dark" toast after brief delay
+  setTimeout(() => showThemeToast(light), 500); // always show opposite-mode suggestion
 }
 (function(){
   if(localStorage.getItem('theme')==='light'){
@@ -3767,7 +3782,13 @@ function resetAll() {
 </div>
 
 <!-- dark-mode reminder toast -->
-<div id="dm-toast"><span class="dm-icon">🌙</span>Dark mode looks better! <button onclick="switchToDark()">Switch to Dark</button></div>
+<div id="dm-toast">
+  <span class="dm-arrow" id="dmArrow">👆</span>
+  <span class="dm-icon" id="dmIcon">🌙</span>
+  <span class="dm-text" id="dmText">Dark mode looks better!</span>
+  <button id="dmBtn" onclick="dmSwitch()">Switch to Dark</button>
+  <button class="dm-close" onclick="dmDismiss()">✕</button>
+</div>
 
 <!-- ── FLOATING ACTION BUTTONS ── -->
 <div class="float-actions">
@@ -4023,15 +4044,51 @@ function closeLegal(){
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLegal(); });
 
-// ── Dark-mode toast ──
+// ── Theme-switch toast (fires both ways) ──
 let _dmTimer=null;
-function showDmToast(){
-  const t=document.getElementById('dm-toast');
-  if(!t)return;
+function showThemeToast(isNowLight){
+  const toast=document.getElementById('dm-toast');
+  const icon=document.getElementById('dmIcon');
+  const text=document.getElementById('dmText');
+  const btn=document.getElementById('dmBtn');
+  if(!toast||!icon||!text||!btn) return;
+  if(isNowLight){
+    // Switched TO light → suggest dark
+    icon.textContent='🌙';
+    text.textContent='Dark mode looks better!';
+    btn.textContent='Switch to Dark';
+  } else {
+    // Switched TO dark → suggest white
+    icon.textContent='☀️';
+    text.textContent='Try White Mode!';
+    btn.textContent='Switch to White';
+  }
   clearTimeout(_dmTimer);
-  t.classList.add('show');
-  _dmTimer=setTimeout(()=>t.classList.remove('show'),6000);
+  toast.classList.add('show');
+  _dmTimer=setTimeout(()=>toast.classList.remove('show'),7000);
 }
+function dmSwitch(){
+  const isLight=document.body.classList.contains('light');
+  if(isLight){
+    // currently light → go dark
+    document.body.classList.remove('light');
+    document.getElementById('thmBtn').textContent='🌙';
+    localStorage.setItem('theme','dark');
+  } else {
+    // currently dark → go light
+    document.body.classList.add('light');
+    document.getElementById('thmBtn').textContent='☀️';
+    localStorage.setItem('theme','light');
+  }
+  document.getElementById('dm-toast').classList.remove('show');
+  clearTimeout(_dmTimer);
+}
+function dmDismiss(){
+  document.getElementById('dm-toast').classList.remove('show');
+  clearTimeout(_dmTimer);
+}
+// legacy alias
+function showDmToast(){ showThemeToast(true); }
 function switchToDark(){
   document.body.classList.remove('light');
   document.getElementById('thmBtn').textContent='🌙';
