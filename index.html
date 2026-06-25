@@ -1197,8 +1197,9 @@ async function apiCall(prompt, maxTokens) {
         const e = await resp.json().catch(()=>({}));
         lastErr = e.error?.message || `Gemini error ${resp.status}`;
         console.warn(`Gemini ${model} attempt ${attempt+1} failed:`, lastErr);
-        const isRetryable = /high demand|overload|quota|503|429|500/i.test(lastErr);
-        if (!isRetryable) break;
+        const isRetryable = /high demand|overload|quota|503|429|500/i.test(lastErr)
+                         && !/not supported|unknown model|not found/i.test(lastErr);
+        if (!isRetryable) break; // skip remaining attempts for this model, try next
       }
       if (success) break;
     }
