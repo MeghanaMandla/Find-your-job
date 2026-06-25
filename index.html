@@ -81,27 +81,21 @@ body.light #bg-canvas,body.light .aurora{opacity:.2}
 
 /* ── dark-mode reminder toast ── */
 /* theme-switch toast — positions near the theme button in nav */
-#dm-toast{position:fixed;top:64px;right:16px;transform:translateY(-12px);
-  background:var(--sf);border-radius:16px;padding:12px 18px 12px 14px;
-  box-shadow:0 8px 32px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06);
-  font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;z-index:600;
+#dm-toast{position:fixed;top:60px;right:14px;transform:translateY(-8px);
+  background:var(--sf);border-radius:40px;padding:6px 10px 6px 9px;
+  box-shadow:0 4px 18px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.07);
+  font-size:11px;font-weight:600;color:var(--t);white-space:nowrap;z-index:600;
   opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;
-  display:flex;align-items:center;gap:10px}
+  display:flex;align-items:center;gap:7px}
 #dm-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
-/* arrow pointing UP toward the nav theme button */
-#dm-toast::before{content:'';position:absolute;bottom:100%;right:28px;
-  border:7px solid transparent;border-bottom-color:var(--sf)}
-/* bouncing arrow label above the toast */
-#dm-toast .dm-arrow{position:absolute;bottom:calc(100% + 14px);right:22px;
-  font-size:20px;animation:dm-bob 1s ease-in-out infinite;pointer-events:none;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
-@keyframes dm-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-#dm-toast .dm-icon{font-size:18px}
-#dm-toast .dm-text{flex:1}
-#dm-toast button{background:linear-gradient(135deg,var(--nc),var(--np));border:none;border-radius:10px;
-  color:#fff;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;white-space:nowrap}
-#dm-toast .dm-close{background:none;border:none;color:var(--t3);font-size:15px;
-  cursor:pointer;padding:0 0 0 4px;line-height:1}
+#dm-toast::before{content:'';position:absolute;bottom:100%;right:20px;
+  border:5px solid transparent;border-bottom-color:var(--sf)}
+#dm-toast .dm-icon{font-size:13px}
+#dm-toast .dm-text{color:var(--t2);font-size:11px}
+#dm-toast button{background:linear-gradient(135deg,var(--nc),var(--np));border:none;border-radius:20px;
+  color:#fff;font-size:10px;font-weight:700;padding:3px 10px;cursor:pointer;white-space:nowrap}
+#dm-toast .dm-close{background:none;border:none;color:var(--t3);font-size:12px;
+  cursor:pointer;padding:0;line-height:1}
 #dm-toast .dm-close:hover{color:var(--t)}
 
 /* ── theme-hint tooltip ── */
@@ -2569,14 +2563,11 @@ function toggleTheme() {
       },{once:true});
     }
   }
-  // Auto-show theme suggestion popup every session after 3s
-  if(!sessionStorage.getItem('toast-shown')){
-    setTimeout(()=>{
-      const isLight=document.body.classList.contains('light');
-      showThemeToast(isLight);
-      sessionStorage.setItem('toast-shown','1');
-    },3000);
-  }
+  // Auto-show theme suggestion on every page open after 2s
+  setTimeout(()=>{
+    const isLight=document.body.classList.contains('light');
+    showThemeToast(isLight);
+  },2000);
 })();
 
 // ─── SAVED JOBS (localStorage) ─────────────────────────────
@@ -3735,7 +3726,7 @@ function resetAll() {
     // Master bus — very slow fade-in over 7s to near-inaudible background level
     ambGain = c.createGain();
     ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.19, c.currentTime + 7); // gentle background
+    ambGain.gain.linearRampToValueAtTime(0.28, c.currentTime + 6); // calm but audible
     ambGain.connect(c.destination);
 
     // Warm reverb — longer tail for "room" feel, heavily low-passed
@@ -3983,12 +3974,11 @@ function resetAll() {
   </div>
 </div>
 
-<!-- dark-mode reminder toast -->
+<!-- theme suggestion mini-pill -->
 <div id="dm-toast">
-  <span class="dm-arrow" id="dmArrow">👆</span>
-  <span class="dm-icon" id="dmIcon">🌙</span>
-  <span class="dm-text" id="dmText">Dark mode looks better!</span>
-  <button id="dmBtn" onclick="dmSwitch()">Switch to Dark</button>
+  <span class="dm-icon" id="dmIcon">☀️</span>
+  <span class="dm-text" id="dmText">Try White Theme?</span>
+  <button id="dmBtn" onclick="dmSwitch()">Try It</button>
   <button class="dm-close" onclick="dmDismiss()">✕</button>
 </div>
 
@@ -4255,19 +4245,13 @@ function showThemeToast(isNowLight){
   const btn=document.getElementById('dmBtn');
   if(!toast||!icon||!text||!btn) return;
   if(isNowLight){
-    // Switched TO light → suggest dark
-    icon.textContent='🌙';
-    text.textContent='Dark mode looks better!';
-    btn.textContent='Switch to Dark';
+    icon.textContent='🌙'; text.textContent='Try Dark Theme?'; btn.textContent='Try It';
   } else {
-    // Switched TO dark → suggest white
-    icon.textContent='☀️';
-    text.textContent='Try White Mode!';
-    btn.textContent='Switch to White';
+    icon.textContent='☀️'; text.textContent='Try White Theme?'; btn.textContent='Try It';
   }
   clearTimeout(_dmTimer);
   toast.classList.add('show');
-  _dmTimer=setTimeout(()=>toast.classList.remove('show'),7000);
+  _dmTimer=setTimeout(()=>toast.classList.remove('show'),6000);
 }
 function dmSwitch(){
   const isLight=document.body.classList.contains('light');
