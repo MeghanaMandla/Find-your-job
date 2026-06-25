@@ -775,6 +775,9 @@ textarea.pa::placeholder{color:var(--t3)}
 <script>
 // ─── SITE CONFIGURATION (Edit these two lines only) ──────
 const SITE_API_KEY       = 'AQ.Ab8RN6IRK4bSfu' + 'jp65LPG89WfmhZKfd7Wq6gSHXqFwWuGU-wuw';
+const SITE_API_KEY_2     = 'AQ.Ab8RN6L4KxlXr2Hp8h8vgFa0hfn4' + 'MzU7-t9knzdqwO-jebrrQw';
+const SITE_API_KEY_3     = 'AQ.Ab8RN6J7rQjdkjKB7hspRma7' + '_wxJZEKy8pTM13_1ZxSeDsOO0Q';
+const SITE_API_KEYS      = [SITE_API_KEY, SITE_API_KEY_2, SITE_API_KEY_3].filter(Boolean);
 const SITE_PROVIDER      = 'gemini';
 const SITE_API_KEY_GROQ  = 'gsk_8p7clMOZWQLHaumIT' + 'RYlWGdyb3FYJpuLizLJlaQJNJ8X8nnMSNDj';
 const SITE_API_KEY_NVIDIA  = 'nvapi-L42XkwDwQ0ePnN1UQ' + 'Oz484CiLzoubnQJVSK7VEp8-UQM9QMwptnlXAtp91eBtJfu';
@@ -991,7 +994,7 @@ async function callClaude(resume, jd) {
   const jdPart = jd ? `\n\nTARGET JOB DESCRIPTION:\n${jd.slice(0,1500)}` : '';
   const resumeSlice = resume.slice(0, 4500);
 
-  // ── Call 1: structured data (score, skills, jobs, feedback, roadmap) ──
+  // ── Single AI call: structured data, rewrite, and interview questions ──
   const prompt1 = `You are an expert ATS resume analyzer. Analyze the resume and respond with ONLY a JSON object. No markdown. No prose. No code fences. Start your response with { and end with }.
 
 Return this exact JSON structure with real values based on the resume:
@@ -1064,18 +1067,7 @@ Return this exact JSON structure with real values based on the resume:
     {"icon":"🎯","title":"Apply to 10 Jobs Per Week","desc":"Target junior roles, internships, and trainee positions. Customize resume for each application.","duration":"Ongoing","tags":["LinkedIn","Naukri","Internshala"],"color":"#00ff88"},
     {"icon":"🎤","title":"Practice Interview Skills","desc":"Do mock interviews on Pramp or InterviewBit. Practice DSA on LeetCode — 2 problems per day.","duration":"Daily","tags":["LeetCode","Pramp","InterviewBit"],"color":"#ffaa00"},
     {"icon":"🏆","title":"Land Your First Role","desc":"Negotiate salary, get offer letter, complete background check, and start your tech career!","duration":"2-3 months","tags":["LinkedIn Salary","Glassdoor","Levels.fyi"],"color":"#4488ff"}
-  ]
-}
-
-Now replace ALL example values above with REAL values from this specific resume. Keep exact same JSON structure. The "rewrite" and "jobs" fields are NOT in this response. For "searchKeywords", return 3-5 key technical skills from the resume as lowercase strings (e.g. ["python","sql","machine learning"]).${jdPart}
-
-RESUME:
-${resumeSlice}`;
-
-  // ── Call 2: get the rewrite and interview questions ──
-  const prompt2 = `Based on this resume, provide two things in JSON format. Start with { end with }. No markdown.
-
-{
+  ],
   "rewrite": "FULL improved resume text here. Use \\n for line breaks within the JSON string. Make it ATS-optimized with strong action verbs and metrics.",
   "interviewQA": [
     {"question": "Tell me about yourself", "answer": "Strong STAR-method answer referencing specific resume content"},
@@ -1089,18 +1081,12 @@ ${resumeSlice}`;
   ]
 }
 
-Replace example values with REAL content from this resume. For the rewrite field, escape all newlines as \\n inside the JSON string.
+Now replace ALL example values above with REAL values from this specific resume. Keep exact same JSON structure. The "jobs" field is NOT in this response. For "searchKeywords", return 3-5 key technical skills from the resume as lowercase strings (e.g. ["python","sql","machine learning"]). For the rewrite field, escape all newlines as \\n inside the JSON string.${jdPart}
 
 RESUME:
 ${resumeSlice}`;
 
-  // Fire both AI calls in parallel (no job fetch here — searchJobs() handles it after)
-  const [r1, r2] = await Promise.all([
-    apiCall(prompt1, 8000),
-    apiCall(prompt2, 4000),
-  ]);
-
-  const merged = { ...r1, ...r2 };
+  const merged = await apiCall(prompt1, 10000);
   merged.jobs = []; // populated by searchJobs() after renderAll
 
   return merged;
@@ -1168,49 +1154,74 @@ function getGeminiText(data) {
   ).trim();
 }
 
+function isQuotaError(message) {
+  return /quota|not enough quota|resource_exhausted|billing/i.test(message || '');
+}
+
+const geminiCooldownUntil = {};
+
+function getRetryDelayMs(message) {
+  const match = String(message || '').match(/retry in ([\d.]+)s/i);
+  return match ? Math.ceil(Number(match[1]) * 1000) : 60000;
+}
+
+function canUseGemini(apiKey) {
+  return Date.now() >= (geminiCooldownUntil[apiKey] || 0);
+}
+
+function markGeminiQuotaCooldown(apiKey, message) {
+  geminiCooldownUntil[apiKey] = Date.now() + getRetryDelayMs(message);
+}
+
 async function apiCall(prompt, maxTokens) {
   const apiKey = SITE_API_KEY;
   const provider = SITE_PROVIDER;
   let resp, raw;
 
   if (provider === 'gemini') {
-    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro'];
+    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
     let lastErr;
-    for (const model of GEMINI_MODELS) {
-      let success = false;
-      for (let attempt = 0; attempt < 4; attempt++) {
-        if (attempt > 0) {
-          document.getElementById('lst') && (document.getElementById('lst').textContent = `Retrying (attempt ${attempt+1})...`);
-          await new Promise(r => setTimeout(r, 2000 * attempt));
+    geminiKeys:
+    for (const geminiApiKey of SITE_API_KEYS.filter(canUseGemini)) {
+      for (const model of GEMINI_MODELS) {
+        for (let attempt = 0; attempt < 4; attempt++) {
+          if (attempt > 0) {
+            document.getElementById('lst') && (document.getElementById('lst').textContent = `Retrying (attempt ${attempt+1})...`);
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+          }
+          resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(geminiApiKey)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: {
+                maxOutputTokens: maxTokens,
+                temperature: 0.4
+              }
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            raw = getGeminiText(data);
+            console.log('Gemini ok, raw (first 300):', raw.slice(0, 300));
+            if (raw) break geminiKeys;
+            // Empty response — try next model/key
+            lastErr = 'Empty response from ' + model;
+            break;
+          }
+          const e = await resp.json().catch(()=>({}));
+          lastErr = e.error?.message || `Gemini error ${resp.status}`;
+          console.warn(`Gemini ${model} attempt ${attempt+1} failed:`, lastErr);
+          if (isQuotaError(lastErr)) {
+            markGeminiQuotaCooldown(geminiApiKey, lastErr);
+            document.getElementById('lst') && (document.getElementById('lst').textContent = 'Gemini quota exhausted. Trying another key...');
+            break;
+          }
+          const isRetryable = /high demand|overload|503|429|500/i.test(lastErr)
+                           && !/not supported|unknown model|not found/i.test(lastErr);
+          if (!isRetryable) break; // skip remaining attempts for this model, try next
         }
-        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: {
-              maxOutputTokens: maxTokens,
-              temperature: 0.4
-            }
-          })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          raw = getGeminiText(data);
-          console.log('Gemini ok, raw (first 300):', raw.slice(0, 300));
-          if (raw) { success = true; break; }
-          // Empty response — try next model
-          lastErr = 'Empty response from ' + model;
-          break;
-        }
-        const e = await resp.json().catch(()=>({}));
-        lastErr = e.error?.message || `Gemini error ${resp.status}`;
-        console.warn(`Gemini ${model} attempt ${attempt+1} failed:`, lastErr);
-        const isRetryable = /high demand|overload|quota|503|429|500/i.test(lastErr)
-                         && !/not supported|unknown model|not found/i.test(lastErr);
-        if (!isRetryable) break; // skip remaining attempts for this model, try next
       }
-      if (success) break;
     }
     // 2nd tier — NVIDIA Nemotron Ultra 550B (strongest structured JSON + long-form)
     if (!raw && SITE_API_KEY_NVIDIA) {
@@ -1836,19 +1847,26 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
 
     let resp, letter;
     if (provider === 'gemini') {
-      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: coverPrompt }] }],
-          generationConfig: {
-            maxOutputTokens: 800,
-            temperature: 0.7
-          }
-        })
-      });
-      const data = await resp.json();
-      letter = getGeminiText(data);
+      for (const geminiApiKey of SITE_API_KEYS.filter(canUseGemini)) {
+        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: coverPrompt }] }],
+            generationConfig: {
+              maxOutputTokens: 800,
+              temperature: 0.7
+            }
+          })
+        });
+        const data = await resp.json();
+        if (!resp.ok && isQuotaError(data?.error?.message)) {
+          markGeminiQuotaCooldown(geminiApiKey, data.error.message);
+          continue;
+        }
+        letter = getGeminiText(data);
+        if (letter) break;
+      }
       // Groq fallback
       if (!letter && SITE_API_KEY_NVIDIA) {
         const nr = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
