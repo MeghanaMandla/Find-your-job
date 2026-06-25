@@ -29,12 +29,16 @@
 body.light{
   --bg:#e8eaf2;--sf:#eceef6;--sf2:#f0f2fa;--sd:#c4c6d2;--sh:#ffffff;
   --gl:#eceef6;--bd:rgba(0,0,0,.07);--c2:#f0f2fa;
+  /* darkened accents for readability on light backgrounds */
+  --nc:#0891b2;--np:#7c3aed;--npi:#be185d;--ng:#15803d;--na:#b45309;
   --t:#1a1a2e;--t1:#0d0d1c;--t2:#4a6080;--t3:#8aaac4;
   --nm:5px 5px 12px #c4c6d2,-4px -4px 10px #ffffff;
   --nm-sm:3px 3px 6px #c4c6d2,-2px -2px 5px #ffffff;
   --nm-in:inset 3px 3px 7px #c4c6d2,inset -2px -2px 5px #ffffff;
   --nav-bg:#e8eaf2;
 }
+/* hero heading gradient: replace white (#fff) start with dark text in light mode */
+body.light .hl1 .tf-word{background:linear-gradient(135deg,var(--t1),var(--nc) 50%,var(--np));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 body.light #bg-canvas,body.light .aurora{opacity:.2}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--t);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;min-height:100vh;transition:background .4s,color .4s}
