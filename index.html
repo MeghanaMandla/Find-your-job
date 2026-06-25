@@ -14,6 +14,7 @@
 <meta property="og:url" content="https://meghanamandla.github.io/Find-your-job/"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -325,8 +326,8 @@ textarea.pa::placeholder{color:var(--t3)}
     <div class="drop" id="drop" onclick="document.getElementById('fi').click()">
       <div class="di" id="dico">📄</div>
       <div class="dt" id="dtit">Drop your resume here</div>
-      <div class="ds">Click to browse or drag & drop your PDF / TXT file</div>
-      <div class="dfmts"><span class="dfmt">PDF</span><span class="dfmt">TXT</span><span class="dfmt">DOC</span></div>
+      <div class="ds">Click to browse or drag & drop your resume</div>
+      <div class="dfmts"><span class="dfmt">PDF</span><span class="dfmt">DOCX</span><span class="dfmt">TXT</span></div>
       <div class="uprog" id="uprg"><div class="uprogf" id="uprgf"></div></div>
     </div>
     <input type="file" id="fi" accept=".pdf,.txt,.doc,.docx">
@@ -500,8 +501,9 @@ textarea.pa::placeholder{color:var(--t3)}
 
 <script>
 // ─── SITE CONFIGURATION (Edit these two lines only) ──────
-const SITE_API_KEY  = 'AQ.Ab8RN6IRK4bSfu' + 'jp65LPG89WfmhZKfd7Wq6gSHXqFwWuGU-wuw';
-const SITE_PROVIDER = 'gemini';
+const SITE_API_KEY       = 'AQ.Ab8RN6IRK4bSfu' + 'jp65LPG89WfmhZKfd7Wq6gSHXqFwWuGU-wuw';
+const SITE_PROVIDER      = 'gemini';
+const SITE_API_KEY_GROQ  = ''; // Free fallback AI — get key at console.groq.com
 // ─────────────────────────────────────────────────────────
 
 // ─── THREE.JS PARTICLES ───────────────────────────────────
@@ -553,6 +555,15 @@ async function extractPDFText(file) {
   }
   return fullText;
 }
+// ─── DOCX TEXT EXTRACTOR — Mammoth.js ─────────────────────
+async function extractDOCXText(file) {
+  if (!window.mammoth) throw new Error('Mammoth.js not loaded. Please refresh and try again.');
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  const text = result.value.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  if (text.length < 40) throw new Error('Could not extract text from this Word document.');
+  return text;
+}
 // ─── FILE HANDLING ─────────────────────────────────────────
 const drop = document.getElementById('drop');
 const fi = document.getElementById('fi');
@@ -577,8 +588,11 @@ async function handleFile(file) {
     fill.style.width = '40%';
 
     if (ext === 'pdf') {
-      showToast('📖 Reading PDF with real parser...');
+      showToast('📖 Reading PDF...');
       text = await extractPDFText(file);
+    } else if (ext === 'docx' || ext === 'doc') {
+      showToast('📄 Reading Word document...');
+      text = await extractDOCXText(file);
     } else {
       text = await file.text();
     }
@@ -807,28 +821,67 @@ ${resumeSlice}`;
   return merged;
 }
 
-// ─── REAL JOB FETCHER — Remotive API (free, no key) ───────
+// ─── REAL JOB FETCHERS — Remotive + Arbeitnow (both free, no key) ───
 async function fetchRealJobs(query) {
+  const [remotive, arbeitnow] = await Promise.all([
+    fetchRemotive(query),
+    fetchArbeitnow(query)
+  ]);
+  const seen = new Set();
+  return [...remotive, ...arbeitnow].filter(j => {
+    const key = (j.title + j.company).toLowerCase().replace(/\s/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 24);
+}
+
+async function fetchRemotive(query) {
   try {
     const q = encodeURIComponent(query.slice(0, 100));
-    const resp = await fetch(`https://remotive.com/api/remote-jobs?search=${q}&limit=15`);
+    const resp = await fetch(`https://remotive.com/api/remote-jobs?search=${q}&limit=12`);
     if (!resp.ok) return [];
     const data = await resp.json();
     return (data.jobs || []).map(j => ({
       title: j.title || '',
       company: j.company_name || '',
       location: j.candidate_required_location || 'Remote',
-      salary: j.salary || 'Competitive',
+      salary: j.salary || '',
       type: (j.job_type || 'full_time').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
       tags: (j.tags || []).slice(0, 5),
       description: (j.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 220) + '…',
       applyUrl: j.url || '',
-      match: 70
+      match: 70,
+      source: 'Remotive'
     }));
-  } catch(e) {
-    console.error('Job fetch failed:', e);
-    return [];
-  }
+  } catch(e) { return []; }
+}
+
+async function fetchArbeitnow(query) {
+  try {
+    const resp = await fetch('https://arbeitnow.com/api/job-board-api?page=1');
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const kws = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    return (data.data || [])
+      .filter(j => {
+        const txt = (j.title + ' ' + (j.tags || []).join(' ')).toLowerCase();
+        return kws.some(k => txt.includes(k));
+      })
+      .slice(0, 10)
+      .map(j => ({
+        title: j.title || '',
+        company: j.company_name || '',
+        location: j.location || 'Remote',
+        salary: '',
+        type: (j.job_types?.[0] || 'Full Time'),
+        tags: (j.tags || []).slice(0, 5),
+        description: (j.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 220) + '…',
+        applyUrl: j.url || '',
+        match: 70,
+        source: 'Arbeitnow'
+      }));
+  } catch(e) { return []; }
 }
 
 function calcJobMatch(job, resumeSkills) {
@@ -882,6 +935,19 @@ async function apiCall(prompt, maxTokens) {
       }
       if (success) break;
     }
+    // Groq fallback if Gemini exhausted and key is configured
+    if (!raw && SITE_API_KEY_GROQ) {
+      try {
+        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying Groq AI fallback...');
+        const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_GROQ },
+          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+        });
+        if (gr.ok) { const gd = await gr.json(); raw = (gd.choices?.[0]?.message?.content || '').trim(); }
+      } catch(e) { console.warn('Groq fallback failed:', e); }
+    }
+
     if (!raw) throw new Error(lastErr || 'Gemini failed after retries');
 
   } else if (provider === 'groq') {
@@ -1168,6 +1234,14 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
       const data = await resp.json();
       const ms = data.steps?.find(s => s.type === 'model_output');
       letter = (data.output_text || ms?.content?.find(c=>c.type==='text')?.text || ms?.content?.[0]?.text || '').trim();
+      // Groq fallback
+      if (!letter && SITE_API_KEY_GROQ) {
+        const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_GROQ },
+          body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 800, messages: [{ role: 'user', content: coverPrompt }] })
+        });
+        if (gr.ok) { const gd = await gr.json(); letter = (gd.choices?.[0]?.message?.content || '').trim(); }
+      }
     } else if (provider === 'groq') {
       resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
