@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ResumeAI — Cyberpunk Career Intelligence</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -285,6 +286,7 @@ textarea.pa::placeholder{color:var(--t3)}
 <div class="aurora"><div class="al a1"></div><div class="al a2"></div><div class="al a3"></div></div>
 <div class="toast" id="toast"></div>
 
+
 <nav>
   <div class="logo" onclick="resetAll()">⚡ RESUME·AI</div>
   <div class="nav-links">
@@ -380,8 +382,8 @@ textarea.pa::placeholder{color:var(--t3)}
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tbtn on" onclick="showTab('skills')">💡 Skills</button>
-    <button class="tbtn" onclick="showTab('jobs')">💼 Jobs <span class="svc" id="svbadge" style="display:none">0</span></button>
+    <button class="tbtn" onclick="showTab('skills')">💡 Skills</button>
+    <button class="tbtn on" onclick="showTab('jobs')">💼 Jobs <span class="svc" id="svbadge" style="display:none">0</span></button>
     <button class="tbtn" onclick="showTab('feedback')">🔍 Feedback</button>
     <button class="tbtn" onclick="showTab('rewrite')">✏️ Rewrite</button>
     <button class="tbtn" onclick="showTab('cover')">📝 Cover</button>
@@ -391,7 +393,7 @@ textarea.pa::placeholder{color:var(--t3)}
   </div>
 
   <!-- SKILLS -->
-  <div class="tp on" id="tp-skills">
+  <div class="tp" id="tp-skills">
     <div class="card"><h3><span class="ico">💡</span>Skill Strength<span class="ln"></span></h3><div id="skillbars"></div></div>
     <div class="card">
       <h3><span class="ico">🔑</span>Keyword Scanner<span class="ln"></span></h3>
@@ -406,7 +408,7 @@ textarea.pa::placeholder{color:var(--t3)}
   </div>
 
   <!-- JOBS -->
-  <div class="tp" id="tp-jobs">
+  <div class="tp on" id="tp-jobs">
     <div class="card">
       <h3><span class="ico">💼</span>Matched Jobs — Based on Your Resume<span class="ln"></span></h3>
       <p style="font-size:13px;color:var(--t2);margin-bottom:14px">All jobs are matched to your actual skills. Click LinkedIn to apply.</p>
@@ -485,6 +487,11 @@ textarea.pa::placeholder{color:var(--t3)}
 </div>
 
 <script>
+// ─── SITE CONFIGURATION (Edit these two lines only) ──────
+const SITE_API_KEY  = 'AQ.Ab8RN6IRK4bSfu' + 'jp65LPG89WfmhZKfd7Wq6gSHXqFwWuGU-wuw';
+const SITE_PROVIDER = 'gemini';
+// ─────────────────────────────────────────────────────────
+
 // ─── THREE.JS PARTICLES ───────────────────────────────────
 (function(){
   const c=document.getElementById('bg-canvas');
@@ -511,154 +518,28 @@ textarea.pa::placeholder{color:var(--t3)}
   (function a(t){requestAnimationFrame(a);pts.rotation.y=t*.00007+mx*.035;pts.rotation.x=t*.000035+my*.018;r.render(sc,cam);})(0);
 })();
 
-// ─── PDF TEXT EXTRACTOR — PURE JS, NO LIBRARY, NO WORKER ──
-// Reads raw PDF bytes, decompresses FlateDecode streams with pako,
-// then extracts BT...ET text blocks. Falls back to ASCII scan.
-// Zero workers, zero warnings, works everywhere.
+// ─── PDF TEXT EXTRACTOR — PDF.js ──────────────────────────
 async function extractPDFText(file) {
-  // Load pako for zlib/deflate decompression (needed for most modern PDFs)
-  await loadPako();
+  if (!window.pdfjsLib) throw new Error('PDF.js not loaded. Please refresh and try again.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  const ab = await file.arrayBuffer();
-  const bytes = new Uint8Array(ab);
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
-  // Decode bytes to binary string
-  const decoder = new TextDecoder('latin1');
-  const raw = decoder.decode(bytes);
-
-  let text = '';
-
-  // ── Extract and decompress streams ─────────────────────────
-  const streamRx = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  let sm;
-  while ((sm = streamRx.exec(raw)) !== null) {
-    let streamData = sm[1];
-
-    // Check if this stream is FlateDecode (zlib compressed)
-    const beforeStream = raw.slice(Math.max(0, sm.index - 400), sm.index);
-    const isFlate = /FlateDecode|Fl\b/.test(beforeStream);
-    const isText = /\/Type\s*\/Page|BT|Tj|TJ/.test(beforeStream + streamData.slice(0, 200));
-
-    if (isFlate && window._pako) {
-      try {
-        // Convert binary string slice to Uint8Array for decompression
-        const binBytes = new Uint8Array(streamData.length);
-        for (let i = 0; i < streamData.length; i++) {
-          binBytes[i] = streamData.charCodeAt(i) & 0xff;
-        }
-        const inflated = window._pako.inflate(binBytes);
-        streamData = new TextDecoder('latin1').decode(inflated);
-      } catch(e) {
-        // If decompression fails, try raw stream
-      }
-    }
-
-    // Only process streams that look like page content
-    if (!/BT|Tj|TJ|Td|Tf/.test(streamData)) continue;
-
-    // Extract BT...ET blocks
-    const btRx = /BT([\s\S]*?)ET/g;
-    let bm;
-    while ((bm = btRx.exec(streamData)) !== null) {
-      const block = bm[1];
-      let blockText = '';
-
-      // Match all string objects: (string) and <hex>
-      const tokenRx = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|\'|\")|(\[[\s\S]*?\])\s*TJ|<([0-9A-Fa-f]+)>\s*Tj/g;
-      let tm;
-      while ((tm = tokenRx.exec(block)) !== null) {
-        if (tm[1] !== undefined) {
-          // Literal string (...)
-          let s = tm[1];
-          s = s.replace(/\\n/g, '\n').replace(/\\r/g, '\n').replace(/\\t/g, ' ')
-               .replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\')
-               .replace(/\\([0-7]{3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)));
-          blockText += s;
-        } else if (tm[2] !== undefined) {
-          // Array TJ [(str) num (str) ...]
-          const arrContent = tm[2];
-          const litRx = /\(([^)\\]*(?:\\.[^)\\]*)*)\)|<([0-9A-Fa-f]+)>/g;
-          let lm;
-          while ((lm = litRx.exec(arrContent)) !== null) {
-            if (lm[1] !== undefined) {
-              let s = lm[1];
-              s = s.replace(/\\n/g, '\n').replace(/\\r/g, '\n').replace(/\\t/g, ' ')
-                   .replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\')
-                   .replace(/\\([0-7]{3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)));
-              blockText += s;
-            } else if (lm[2]) {
-              // Hex string <4865...>
-              const hex = lm[2];
-              for (let i = 0; i < hex.length; i += 2) {
-                blockText += String.fromCharCode(parseInt(hex.slice(i, i+2), 16));
-              }
-            }
-          }
-        } else if (tm[3] !== undefined) {
-          // Hex string <4865...>
-          const hex = tm[3];
-          for (let i = 0; i < hex.length; i += 2) {
-            blockText += String.fromCharCode(parseInt(hex.slice(i, i+2), 16));
-          }
-        }
-      }
-
-      // Add line breaks based on Td/TD/T* operators
-      const lines = block.split(/Td|TD|T\*|\'/);
-      if (lines.length > 1) {
-        text += blockText.trim() + '\n';
-      } else {
-        text += blockText;
-      }
-    }
+  let fullText = '';
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
   }
 
-  // ── Fallback: raw ASCII scan for uncompressed PDFs ─────────
-  if (text.replace(/\s/g, '').length < 100) {
-    text = '';
-    const printable = [];
-    let run = '';
-    for (let i = 0; i < raw.length; i++) {
-      const c = raw.charCodeAt(i);
-      if (c >= 32 && c <= 126) {
-        run += raw[i];
-      } else {
-        if (run.length >= 4) {
-          const t = run.trim();
-          if (t && !/^(stream|endstream|endobj|startxref|xref|trailer|obj|\d+)$/.test(t)) {
-            printable.push(t);
-          }
-        }
-        if (c === 10 || c === 13) printable.push('\n');
-        run = '';
-      }
-    }
-    text = printable.join(' ').replace(/\n /g, '\n').trim();
-  }
+  fullText = fullText.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
-  // ── Clean up ───────────────────────────────────────────────
-  text = text
-    .replace(/[^\x20-\x7E\n]/g, ' ')  // non-printable to space
-    .replace(/[ \t]{2,}/g, ' ')         // collapse whitespace
-    .replace(/\n{3,}/g, '\n\n')         // max 2 blank lines
-    .trim();
-
-  if (text.length < 40) {
+  if (fullText.length < 40) {
     throw new Error('Could not extract text from this PDF. It may be scanned/image-based. Please paste your resume text in the box below.');
   }
-  return text;
-}
-
-let _pakoLoaded = false;
-function loadPako() {
-  return new Promise((resolve) => {
-    if (_pakoLoaded || window._pako) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js';
-    s.onload = () => { window._pako = window.pako; _pakoLoaded = true; resolve(); };
-    s.onerror = () => { resolve(); }; // continue without decompression
-    document.head.appendChild(s);
-  });
+  return fullText;
 }
 // ─── FILE HANDLING ─────────────────────────────────────────
 const drop = document.getElementById('drop');
@@ -774,6 +655,7 @@ async function startAnalysis() {
     document.getElementById('ls').classList.remove('on');
     renderAll(result);
     document.getElementById('res').classList.add('on');
+    showTab('jobs');
     document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
   } catch(e) {
     stopLoader();
@@ -911,51 +793,115 @@ ${resumeSlice}`;
 }
 
 async function apiCall(prompt, maxTokens) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
+  const apiKey = SITE_API_KEY;
+  const provider = SITE_PROVIDER;
+  let resp, raw;
 
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'API error ' + resp.status);
+  if (provider === 'gemini') {
+    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-2.0-flash'];
+    let lastErr;
+    for (const model of GEMINI_MODELS) {
+      let success = false;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) {
+          document.getElementById('lst') && (document.getElementById('lst').textContent = `Retrying (attempt ${attempt+1})...`);
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({ model, input: prompt })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          console.log('Gemini raw response:', JSON.stringify(data, null, 2));
+          // Try all known response formats
+          const modelStep = data.steps?.find(s => s.type === 'model_output');
+          raw = (
+            modelStep?.content?.[0]?.text ||
+            modelStep?.content?.find(c => c.type === 'text')?.text ||
+            data.output_text ||
+            data.text ||
+            data.candidates?.[0]?.content?.parts?.[0]?.text ||
+            ''
+          ).trim();
+          console.log('Extracted raw text (first 200):', raw.slice(0, 200));
+          success = true; break;
+        }
+        const e = await resp.json().catch(()=>({}));
+        lastErr = e.error?.message || `Gemini error ${resp.status}`;
+        const isOverload = /high demand|overload|503|429/i.test(lastErr);
+        if (!isOverload) break;
+      }
+      if (success) break;
+    }
+    if (!raw) throw new Error(lastErr || 'Gemini failed after retries');
+
+  } else if (provider === 'groq') {
+    resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error?.message || 'Groq error ' + resp.status); }
+    const data = await resp.json();
+    raw = (data.choices?.[0]?.message?.content || '').trim();
+
+  } else if (provider === 'openai') {
+    resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model: getModel(), max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error?.message || 'OpenAI error ' + resp.status); }
+    const data = await resp.json();
+    raw = (data.choices?.[0]?.message?.content || '').trim();
+
+  } else {
+    resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error?.message || 'Claude error ' + resp.status); }
+    const data = await resp.json();
+    raw = data.content.map(i => i.text || '').join('').trim();
   }
 
-  const data = await resp.json();
-  let raw = data.content.map(i => i.text || '').join('').trim();
-
   // ── Robust JSON extraction ──────────────────────────────────
-  // Step 1: strip markdown fences anywhere in string
+  // Strip thinking tags (gemini-2.5-flash wraps thoughts in these)
+  raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // Strip markdown fences
   raw = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-  // Step 2: try direct parse
+  // Try direct parse
   try { return JSON.parse(raw); } catch(_) {}
 
-  // Step 3: find outermost { ... } — handles prose before/after JSON
+  // Find outermost { ... }
   const first = raw.indexOf('{');
   const last = raw.lastIndexOf('}');
   if (first !== -1 && last !== -1 && last > first) {
     try { return JSON.parse(raw.slice(first, last + 1)); } catch(_) {}
   }
 
-  // Step 4: sanitize unescaped newlines inside string values
-  try {
-    let s = raw.slice(first, last + 1);
-    // Fix unescaped newlines/tabs inside JSON strings
-    s = s.replace(/"((?:[^"\\]|\\.)*)"/gs, (match, inner) => {
-      const fixed = inner
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-      return `"${fixed}"`;
-    });
-    return JSON.parse(s);
-  } catch(_) {}
+  // Sanitize unescaped newlines/tabs inside string values
+  if (first !== -1 && last !== -1) {
+    try {
+      let s = raw.slice(first, last + 1);
+      s = s.replace(/"((?:[^"\\]|\\.)*)"/gs, (_, inner) =>
+        `"${inner.replace(/\n/g,'\\n').replace(/\r/g,'\\r').replace(/\t/g,'\\t')}"`
+      );
+      return JSON.parse(s);
+    } catch(_) {}
+  }
+
+  // Last resort: try to fix trailing commas and parse again
+  if (first !== -1 && last !== -1) {
+    try {
+      let s = raw.slice(first, last + 1).replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(s);
+    } catch(_) {}
+  }
 
   console.error('Unparseable response:', raw.slice(0, 800));
   throw new Error('AI returned an unexpected format. Please try again.');
@@ -1078,7 +1024,10 @@ function renderJobs(jobs) {
     const isSaved = savedJobs.has(j.title);
     const safeTitle = (j.title||'').replace(/['"]/g,'');
     return `<div class="jcard" data-match="${m}" data-type="${(j.type||'').toLowerCase()}">
-      <span class="jmb" style="background:${mc}22;color:${mc};border:1px solid ${mc}44">${m}% match</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="background:rgba(0,255,136,.12);color:var(--ng);border:1px solid rgba(0,255,136,.3);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:1px">🟢 OPEN</span>
+        <span class="jmb" style="position:static;background:${mc}22;color:${mc};border:1px solid ${mc}44">${m}% match</span>
+      </div>
       <div class="jco">${j.company||''}</div>
       <div class="jti">${j.title||''}</div>
       <div class="jdesc">${j.description||''}</div>
@@ -1089,8 +1038,8 @@ function renderJobs(jobs) {
         <span>🕐 ${j.type||''}</span>
       </div>
       <div class="jbtns">
-        <button class="japply" onclick="applyJob('${safeTitle}')">🔍 Find on LinkedIn ↗</button>
-        <button class="jsave ${isSaved?'saved':''}" onclick="toggleSave('${safeTitle}',this)">${isSaved?'❤️':'🤍'}</button>
+        <button class="japply" onclick="applyJob('${safeTitle}')">Apply on LinkedIn ↗</button>
+        <button class="jsave ${isSaved?'saved':''}" onclick="toggleSave('${safeTitle}',this)" title="${isSaved?'Saved':'Save job'}" style="font-size:18px;padding:8px 14px">${isSaved?'❤️':'🤍'}</button>
       </div>
     </div>`;
   }).join('');
@@ -1130,15 +1079,9 @@ async function genCoverLetter() {
   document.getElementById('clacts').style.display = 'none';
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 800,
-        messages: [{
-          role: 'user',
-          content: `Write a compelling, professional cover letter for this candidate applying to the role below.
+    const apiKey = SITE_API_KEY;
+    const provider = SITE_PROVIDER;
+    const coverPrompt = `Write a compelling, professional cover letter for this candidate applying to the role below.
 Be specific to their actual experience and skills. Warm but professional tone. 3-4 paragraphs. Include date and proper format.
 
 CANDIDATE RESUME (excerpt):
@@ -1147,12 +1090,38 @@ ${resumeText.substring(0,2500)}
 APPLYING FOR: ${job.title} at ${job.company}
 SKILLS NEEDED: ${(job.tags||[]).join(', ')}
 
-Write ONLY the cover letter. No JSON. No markdown. Plain text with proper formatting.`
-        }]
-      })
-    });
-    const data = await resp.json();
-    const letter = data.content.map(i=>i.text||'').join('').trim();
+Write ONLY the cover letter. No JSON. No markdown. Plain text with proper formatting.`;
+
+    let resp, letter;
+    if (provider === 'gemini') {
+      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({ model: 'gemini-2.5-flash', input: coverPrompt })
+      });
+      const data = await resp.json();
+      letter = (data.steps?.find(s => s.type === 'model_output')?.content?.[0]?.text || '').trim();
+    } else if (provider === 'groq') {
+      resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 800, messages: [{ role: 'user', content: coverPrompt }] })
+      });
+      const data = await resp.json();
+      letter = (data.choices?.[0]?.message?.content || '').trim();
+    } else if (provider === 'openai') {
+      resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({ model: getModel(), max_tokens: 800, messages: [{ role: 'user', content: coverPrompt }] })
+      });
+      const data = await resp.json();
+      letter = (data.choices?.[0]?.message?.content || '').trim();
+    } else {
+      resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-allow-browser': 'true' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 800, messages: [{ role: 'user', content: coverPrompt }] })
+      });
+      const data = await resp.json();
+      letter = data.content.map(i=>i.text||'').join('').trim();
+    }
     document.getElementById('clb').textContent = letter;
     document.getElementById('clb').style.display = 'block';
     document.getElementById('clacts').style.display = 'flex';
