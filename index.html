@@ -279,6 +279,15 @@ textarea.pa::placeholder{color:var(--t3)}
 .stat-bar-after-green::after{background:var(--ng)}
 .stat-bar-after-amber::after{background:var(--na)}
 
+/* GITHUB */
+.gh-repo{display:block;background:var(--gl);border:1px solid var(--bd);border-radius:10px;padding:12px 16px;text-decoration:none;transition:border-color .2s;margin-bottom:8px;color:inherit}
+.gh-repo:hover{border-color:var(--nc)}
+.gh-inp{flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none;transition:border-color .3s;font-family:inherit}
+.gh-inp:focus{border-color:var(--nc)}
+.gh-btn{padding:10px 18px;background:linear-gradient(135deg,var(--nc),var(--np));border:none;border-radius:10px;color:#000;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.5px}
+/* GRAMMAR */
+.gram-issue{border-radius:8px;padding:10px 14px;margin-bottom:6px}
+
 @media(max-width:700px){
   nav{padding:12px 16px}.nav-links{gap:10px}.nav-links a{font-size:11px}
   .sh{grid-template-columns:1fr;text-align:center}.srw{margin:0 auto}
@@ -343,6 +352,12 @@ textarea.pa::placeholder{color:var(--t3)}
       <textarea class="pa" id="jdinp" style="min-height:90px" placeholder="Paste the job description here for ATS keyword matching..."></textarea>
     </div>
 
+    <div class="ordiv">OR ANALYZE GITHUB PROFILE</div>
+    <div style="display:flex;gap:8px">
+      <input id="ghurl" class="gh-inp" placeholder="github.com/username  or just  username" onkeydown="if(event.key==='Enter')analyzeGitHub()"/>
+      <button class="gh-btn" onclick="analyzeGitHub()">🐙 Analyze</button>
+    </div>
+
     <button class="abtn" id="abtn" onclick="startAnalysis()">⚡ ANALYZE MY RESUME — AI POWERED</button>
   </div>
 </section>
@@ -399,6 +414,8 @@ textarea.pa::placeholder{color:var(--t3)}
     <button class="tbtn" onclick="showTab('interview')">🎤 Interview</button>
     <button class="tbtn" onclick="showTab('salary')">💰 Salary</button>
     <button class="tbtn" onclick="showTab('roadmap')">🗺️ Roadmap</button>
+    <button class="tbtn" onclick="showTab('github')">🐙 GitHub</button>
+    <button class="tbtn" onclick="showTab('grammar')">📝 Grammar</button>
   </div>
 
   <!-- SKILLS -->
@@ -493,6 +510,23 @@ textarea.pa::placeholder{color:var(--t3)}
     <div class="card">
       <h3><span class="ico">🗺️</span>Your Career Roadmap<span class="ln"></span></h3>
       <div class="rmwrap" id="rmsteps"></div>
+    </div>
+  </div>
+
+  <!-- GITHUB -->
+  <div class="tp" id="tp-github">
+    <div class="card">
+      <h3><span class="ico">🐙</span>GitHub Profile Analysis<span class="ln"></span></h3>
+      <div id="gh-content"><p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above (or in the search bar) to analyze your profile, repos, and get improvement suggestions.</p></div>
+    </div>
+  </div>
+
+  <!-- GRAMMAR -->
+  <div class="tp" id="tp-grammar">
+    <div class="card">
+      <h3><span class="ico">📝</span>Resume Grammar & Writing Check<span class="ln"></span></h3>
+      <p style="font-size:13px;color:var(--t2);margin-bottom:14px">Powered by LanguageTool — detects grammar errors, spelling mistakes, passive voice, and weak resume wording.</p>
+      <div id="grammar-content"><p style="color:var(--t2);font-size:14px">Upload and analyze your resume to run a full grammar and writing quality check.</p></div>
     </div>
   </div>
 
@@ -686,6 +720,7 @@ async function startAnalysis() {
     document.getElementById('res').classList.add('on');
     showTab('jobs');
     document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
+    checkGrammar(resumeText);
   } catch(e) {
     stopLoader();
     document.getElementById('ls').classList.remove('on');
@@ -1335,9 +1370,179 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
   document.getElementById('cll').style.display = 'none';
 }
 
+// ─── GITHUB PROFILE ANALYZER ───────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function analyzeGitHub() {
+  let input = (document.getElementById('ghurl').value || '').trim();
+  if (!input) { showToast('⚠️ Enter a GitHub username or URL'); return; }
+  input = input.replace(/https?:\/\/github\.com\//,'').split('/')[0].trim();
+  if (!input) { showToast('❌ Invalid GitHub URL'); return; }
+
+  document.getElementById('res').classList.add('on');
+  showTab('github');
+  document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);padding:30px;text-align:center;font-size:14px">🔍 Analyzing @' + esc(input) + '...</p>';
+
+  try {
+    const [ur, rr] = await Promise.all([
+      fetch('https://api.github.com/users/' + input),
+      fetch('https://api.github.com/users/' + input + '/repos?sort=updated&per_page=20&type=public')
+    ]);
+    if (!ur.ok) throw new Error(ur.status === 404 ? 'User "' + esc(input) + '" not found on GitHub' : 'GitHub API error ' + ur.status);
+    const user = await ur.json();
+    const repos = rr.ok ? await rr.json() : [];
+    renderGitHub(user, repos);
+  } catch(e) {
+    document.getElementById('gh-content').innerHTML = '<p style="color:var(--npi);padding:20px">❌ ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderGitHub(user, repos) {
+  const totalStars = repos.reduce((s,r) => s + r.stargazers_count, 0);
+  const totalForks = repos.reduce((s,r) => s + r.forks_count, 0);
+  const langs = {};
+  repos.forEach(r => { if (r.language) langs[r.language] = (langs[r.language]||0)+1; });
+  const langList = Object.entries(langs).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const topRepos = [...repos].sort((a,b)=>b.stargazers_count-a.stargazers_count).slice(0,5);
+
+  const repoScore    = Math.min(25, repos.length * 2);
+  const starScore    = Math.min(25, Math.round(totalStars * 2.5));
+  const langScore    = Math.min(20, langList.length * 4);
+  const profileScore = (user.bio?10:0) + (user.blog?10:0) + (user.location?5:0);
+  const follScore    = Math.min(15, user.followers);
+  const total        = Math.min(100, repoScore + starScore + langScore + profileScore + follScore);
+  const col = total>=70?'var(--ng)':total>=50?'var(--na)':'var(--npi)';
+  const lc = ['#00ffff','#bf00ff','#ff0080','#00ff88','#ffaa00','#4488ff','#ff6600'];
+
+  const suggestions = [];
+  if (!user.bio)          suggestions.push({t:'error', m:'Add a bio — recruiters look at this first'});
+  if (!user.blog)         suggestions.push({t:'warn',  m:'Add your portfolio/LinkedIn in the website field'});
+  if (repos.length < 6)  suggestions.push({t:'error', m:'Publish more public repos — aim for 10+'});
+  if (totalStars < 3)    suggestions.push({t:'warn',  m:'Pin your best repos and add READMEs to get stars'});
+  if (!user.location)    suggestions.push({t:'info',  m:'Add your location to appear in location-based searches'});
+  suggestions.push({t:'success', m:'Add to resume: github.com/' + user.login});
+
+  const tip = s => {
+    const bg  = {error:'rgba(255,0,128,.08)',warn:'rgba(255,170,0,.08)',info:'rgba(0,255,255,.06)',success:'rgba(0,255,136,.08)'}[s.t];
+    const bdr = {error:'rgba(255,0,128,.2)', warn:'rgba(255,170,0,.2)', info:'rgba(0,255,255,.15)',success:'rgba(0,255,136,.2)'}[s.t];
+    const ico = {error:'❌',warn:'⚠️',info:'💡',success:'✅'}[s.t];
+    return `<div style="background:${bg};border:1px solid ${bdr};border-radius:8px;padding:10px 14px;margin-bottom:7px;font-size:13px;color:var(--t)">${ico} ${esc(s.m)}</div>`;
+  };
+
+  document.getElementById('gh-content').innerHTML = `
+    <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:24px">
+      <img src="${esc(user.avatar_url)}" style="width:80px;height:80px;border-radius:50%;border:2px solid var(--nc);flex-shrink:0" loading="lazy"/>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:18px;font-weight:700;color:var(--t);margin-bottom:2px">${esc(user.name||user.login)}</div>
+        <div style="color:var(--nc);font-size:13px;margin-bottom:8px">@${esc(user.login)}${user.location?' · 📍 '+esc(user.location):''}</div>
+        ${user.bio?`<div style="color:var(--t2);font-size:13px;margin-bottom:8px;line-height:1.5">${esc(user.bio)}</div>`:''}
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <span style="color:var(--t2);font-size:12px">👥 ${user.followers} followers</span>
+          <span style="color:var(--t2);font-size:12px">📦 ${user.public_repos} repos</span>
+          <span style="color:var(--t2);font-size:12px">⭐ ${totalStars} stars</span>
+          <span style="color:var(--t2);font-size:12px">🍴 ${totalForks} forks</span>
+        </div>
+      </div>
+      <div style="text-align:center;background:var(--gl);border:1px solid var(--bd);border-radius:14px;padding:18px 26px;flex-shrink:0">
+        <div style="font-size:42px;font-weight:800;color:${col}">${total}</div>
+        <div style="font-size:10px;color:var(--t2);letter-spacing:1.5px;margin-top:2px">PORTFOLIO SCORE</div>
+      </div>
+    </div>
+
+    ${langList.length ? `
+    <div style="margin-bottom:22px">
+      <div style="font-size:11px;color:var(--t2);letter-spacing:2px;margin-bottom:10px">LANGUAGES</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        ${langList.map(([l,c],i)=>`<span style="background:${lc[i]}22;border:1px solid ${lc[i]}55;color:${lc[i]};padding:5px 13px;border-radius:20px;font-size:12px">${esc(l)} (${c})</span>`).join('')}
+      </div>
+    </div>` : ''}
+
+    ${topRepos.length ? `
+    <div style="margin-bottom:22px">
+      <div style="font-size:11px;color:var(--t2);letter-spacing:2px;margin-bottom:10px">TOP REPOSITORIES</div>
+      ${topRepos.map(r=>`
+        <a href="${esc(r.html_url)}" target="_blank" rel="noopener" class="gh-repo">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <div style="color:var(--nc);font-size:14px;font-weight:600">${esc(r.name)}</div>
+            <div style="display:flex;gap:12px;flex-shrink:0">
+              <span style="color:var(--na);font-size:12px">⭐ ${r.stargazers_count}</span>
+              <span style="color:var(--t2);font-size:12px">🍴 ${r.forks_count}</span>
+            </div>
+          </div>
+          ${r.description?`<div style="color:var(--t2);font-size:12px;margin-bottom:4px">${esc(r.description.slice(0,120))}</div>`:''}
+          ${r.language?`<span style="color:var(--na);font-size:11px">${esc(r.language)}</span>`:''}
+        </a>`).join('')}
+    </div>` : ''}
+
+    <div>
+      <div style="font-size:11px;color:var(--t2);letter-spacing:2px;margin-bottom:10px">SUGGESTIONS</div>
+      ${suggestions.map(tip).join('')}
+    </div>
+  `;
+}
+
+// ─── LANGUAGETOOL GRAMMAR CHECKER ──────────────────────────
+async function checkGrammar(text) {
+  if (!text || text.length < 50) return;
+  document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);padding:30px;text-align:center;font-size:14px">📝 Checking grammar and writing quality...</p>';
+  try {
+    const params = new URLSearchParams({ text: text.slice(0, 10000), language: 'en-US', enabledOnly: 'false' });
+    const resp = await fetch('https://api.languagetool.org/v2/check', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params });
+    if (!resp.ok) throw new Error('LanguageTool unavailable');
+    const data = await resp.json();
+    renderGrammar(data.matches || [], text);
+  } catch(e) {
+    document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);padding:20px">Grammar check unavailable right now. Try again later.</p>';
+  }
+}
+
+function renderGrammar(matches, text) {
+  if (!matches.length) {
+    document.getElementById('grammar-content').innerHTML = '<div style="text-align:center;padding:36px"><div style="font-size:52px;margin-bottom:12px">✅</div><div style="font-size:18px;font-weight:600;color:var(--ng);margin-bottom:8px">No Issues Found</div><p style="color:var(--t2);font-size:13px">Your resume writing looks clean and professional!</p></div>';
+    return;
+  }
+  const score = Math.max(40, 100 - matches.length * 3);
+  const scoreColor = score>=80?'var(--ng)':score>=65?'var(--na)':'var(--npi)';
+  const cats = {};
+  matches.forEach(m => { const c = m.rule?.category?.name || 'Other'; if (!cats[c]) cats[c]=[]; cats[c].push(m); });
+
+  document.getElementById('grammar-content').innerHTML = `
+    <div style="display:flex;gap:20px;align-items:center;background:var(--gl);border:1px solid var(--bd);border-radius:14px;padding:18px 22px;margin-bottom:22px;flex-wrap:wrap">
+      <div style="text-align:center;min-width:72px">
+        <div style="font-size:42px;font-weight:800;color:${scoreColor}">${score}</div>
+        <div style="font-size:10px;color:var(--t2);letter-spacing:1.5px">WRITING SCORE</div>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div style="color:var(--t);font-size:15px;font-weight:600;margin-bottom:4px">${matches.length} issue${matches.length!==1?'s':''} found</div>
+        <div style="color:var(--t2);font-size:12px">${Object.keys(cats).join(' · ')}</div>
+      </div>
+    </div>
+    ${Object.entries(cats).map(([cat, items]) => `
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;color:var(--t2);letter-spacing:2px;margin-bottom:8px">${esc(cat).toUpperCase()} (${items.length})</div>
+        ${items.slice(0,4).map(m => {
+          const wrong = text.substring(m.offset, m.offset+m.length);
+          const ctx   = esc(text.substring(Math.max(0,m.offset-25), m.offset+m.length+25).trim());
+          const hi    = esc(wrong);
+          const fix   = m.replacements?.[0]?.value;
+          const isSpell = /spell/i.test(m.rule?.category?.id||'');
+          const bg  = isSpell?'rgba(255,170,0,.07)':'rgba(255,0,128,.06)';
+          const bdr = isSpell?'rgba(255,170,0,.2)':'rgba(255,0,128,.15)';
+          return `<div class="gram-issue" style="background:${bg};border:1px solid ${bdr}">
+            <div style="color:var(--t);font-size:13px;margin-bottom:4px">${esc(m.message)}</div>
+            <div style="color:var(--t2);font-size:12px;font-family:monospace">…${ctx.replace(hi,'<span style="color:var(--npi);text-decoration:underline wavy">'+hi+'</span>')}…</div>
+            ${fix?`<div style="color:var(--ng);font-size:12px;margin-top:4px">💡 Fix: <strong>${esc(fix)}</strong></div>`:''}
+          </div>`;
+        }).join('')}
+        ${items.length>4?`<div style="color:var(--t2);font-size:12px;padding:2px 14px">+ ${items.length-4} more ${esc(cat.toLowerCase())} issues</div>`:''}
+      </div>`).join('')}
+  `;
+}
+
 // ─── HELPERS ───────────────────────────────────────────────
 function showTab(id) {
-  const ids = ['skills','jobs','feedback','rewrite','cover','interview','salary','roadmap'];
+  const ids = ['skills','jobs','feedback','rewrite','cover','interview','salary','roadmap','github','grammar'];
   document.querySelectorAll('.tbtn').forEach((b,i) => b.classList.toggle('on', ids[i]===id));
   document.querySelectorAll('.tp').forEach(p => p.classList.toggle('on', p.id==='tp-'+id));
 }
@@ -1366,9 +1571,12 @@ function resetAll() {
   document.getElementById('res').classList.remove('on');
   document.getElementById('pit').value = '';
   document.getElementById('jdinp').value = '';
+  document.getElementById('ghurl').value = '';
   document.getElementById('abtn').disabled = false;
   document.getElementById('dico').textContent = '📄';
   document.getElementById('dtit').textContent = 'Drop your resume here';
+  document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
+  document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
   resumeText=''; allJobs=[]; savedJobs=new Set();
   window.scrollTo({top:0,behavior:'smooth'});
 }
