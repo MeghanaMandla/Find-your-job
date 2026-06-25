@@ -3287,7 +3287,7 @@ function resetAll() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   let ctx = null, soundOn = localStorage.getItem('sfx') !== 'false';
-  let musicOn = false, ambGain = null, ambOscs = [], lastType = 0;
+  let musicOn = false, ambGain = null, ambOscs = [], lastType = 0, ambBellTimer = null, ambPlaying = false;
 
   function getCtx(){
     if (!ctx) ctx = new AC();
@@ -3348,40 +3348,78 @@ function resetAll() {
   };
 
   function startAmbient(){
+    if (ambGain) return;
     if (!ctx) ctx = new AC();
     if (ctx.state === 'suspended') ctx.resume();
     const c = ctx;
+    ambPlaying = true;
     ambGain = c.createGain();
-    const dly = c.createDelay(2), dg = c.createGain();
-    dly.delayTime.value = 0.48; dg.gain.value = 0.22;
-    ambGain.connect(c.destination);
-    ambGain.connect(dly); dly.connect(dg); dg.connect(c.destination);
     ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.055, c.currentTime + 2.5);
-    // Cmaj7 pad: C2 E2 G2 B2 C3 E3 G3
-    [65.41,82.41,98.00,123.47,130.81,164.81,196.00].forEach(freq => {
-      [-5,-1,0,2,4].forEach(det => {
-        const o = c.createOscillator(), g2 = c.createGain();
-        o.type = 'sine'; o.frequency.value = freq; o.detune.value = det;
-        g2.gain.value = 0.28 / 7;
-        o.connect(g2); g2.connect(ambGain); o.start();
-        ambOscs.push(o);
-      });
+    ambGain.gain.linearRampToValueAtTime(0.38, c.currentTime + 3.5);
+    ambGain.connect(c.destination);
+
+    // Spacious reverb tail — two long delay lines through a low-pass filter
+    const d1=c.createDelay(3), g1=c.createGain();
+    const d2=c.createDelay(2), g2=c.createGain();
+    d1.delayTime.value=0.9; g1.gain.value=0.28;
+    d2.delayTime.value=1.4; g2.gain.value=0.18;
+    const lpf=c.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=1600;
+    ambGain.connect(d1); d1.connect(g1); g1.connect(lpf);
+    ambGain.connect(d2); d2.connect(g2); g2.connect(lpf);
+    lpf.connect(c.destination);
+
+    // Soft wind — narrow bandpass filtered noise
+    const nBuf=c.createBuffer(1,c.sampleRate*4,c.sampleRate);
+    const nData=nBuf.getChannelData(0);
+    for(let i=0;i<nData.length;i++) nData[i]=Math.random()*2-1;
+    const ns=c.createBufferSource(); ns.buffer=nBuf; ns.loop=true;
+    const nf=c.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=380; nf.Q.value=0.2;
+    const ng=c.createGain(); ng.gain.value=0.022;
+    ns.connect(nf); nf.connect(ng); ng.connect(ambGain);
+    ns.start(); ambOscs.push(ns);
+
+    // Deep root drone — A2 + E2 (fifth) very quiet
+    [[110,0.045],[82.41,0.028],[55,0.022],[164.81,0.018]].forEach(([f,v])=>{
+      const o=c.createOscillator(), g=c.createGain();
+      o.type='sine'; o.frequency.value=f; g.gain.value=v;
+      o.connect(g); g.connect(ambGain); o.start(); ambOscs.push(o);
     });
-    // slow tremolo LFO
-    const lfo = c.createOscillator(), lg = c.createGain();
-    lfo.frequency.value = 0.12; lg.gain.value = 0.012;
-    lfo.connect(lg); lg.connect(ambGain.gain); lfo.start();
-    ambOscs.push(lfo);
+
+    // Very slow breathing LFO on master gain
+    const lfo=c.createOscillator(), lfg=c.createGain();
+    lfo.type='sine'; lfo.frequency.value=0.055; lfg.gain.value=0.006;
+    lfo.connect(lfg); lfg.connect(ambGain.gain); lfo.start(); ambOscs.push(lfo);
+
+    // Pentatonic bell melody — C major pentatonic (C D E G A), multiple octaves
+    const scale=[261.63,293.66,329.63,392,440,523.25,587.33,659.25,784,880,1046.5];
+    function bell(){
+      if(!ambPlaying) return;
+      const freq=scale[Math.floor(Math.random()*scale.length)];
+      const now=c.currentTime;
+      // Fundamental + 2nd harmonic (softer) — piano-bell tone shape
+      [[1,0.11,3.2],[2,0.045,1.8],[3,0.018,1.1]].forEach(([harm,vol,dur])=>{
+        const o=c.createOscillator(), g=c.createGain();
+        o.type='sine'; o.frequency.value=freq*harm;
+        g.gain.setValueAtTime(0,now);
+        g.gain.linearRampToValueAtTime(vol,now+0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001,now+dur);
+        o.connect(g); g.connect(ambGain);
+        o.start(now); o.stop(now+dur+0.05);
+      });
+      ambBellTimer=setTimeout(bell, 1600+Math.random()*3000);
+    }
+    ambBellTimer=setTimeout(bell, 900);
   }
 
   function stopAmbient(){
     if (!ambGain) return;
-    ambGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.4);
+    ambPlaying = false;
+    clearTimeout(ambBellTimer);
+    ambGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.6);
     setTimeout(() => {
       ambOscs.forEach(o => { try { o.stop(); } catch(e){} });
       ambOscs = []; ambGain = null;
-    }, 1500);
+    }, 1700);
   }
 
   window.toggleMusic = function(){
