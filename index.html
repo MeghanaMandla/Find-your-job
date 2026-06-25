@@ -571,7 +571,13 @@ textarea.pa::placeholder{color:var(--t3)}
         <button class="fb on" onclick="filtJobs('all',this)">All</button>
         <button class="fb" onclick="filtJobs('remote',this)">🌐 Remote</button>
         <button class="fb" onclick="filtJobs('high',this)">🔥 80%+ Match</button>
+        <button class="fb" onclick="filtJobs('salary',this)">💰 Has Salary</button>
         <button class="fb" onclick="filtJobs('saved',this)">❤️ Saved</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+        <span style="font-size:10px;color:var(--t3);letter-spacing:1.5px">SORT:</span>
+        <button class="fb jsort on" onclick="sortJobs('match',this)">🎯 Best Match</button>
+        <button class="fb jsort" onclick="sortJobs('salary',this)">💰 Highest Salary</button>
       </div>
       <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
 
@@ -752,7 +758,8 @@ const fi = document.getElementById('fi');
 let resumeText = '', allJobs = [], savedJobs = new Set();
 let currentFilteredJobs = [], jobPage = 1;
 const JOBS_PER_PAGE = 6;
-let resumeSkillsFound = [], resumeSkillsMissing = [];
+let resumeSkillsFound = [], resumeSkillsMissing = [], resumeRoles = [];
+let sortMode = 'match';
 
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
@@ -868,10 +875,7 @@ async function startAnalysis() {
     document.getElementById('res').classList.add('on');
     showTab('jobs');
     document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
-    // Auto-search jobs using AI-extracted keywords — no user action needed
-    if (result.searchKeywords?.length) {
-      document.getElementById('jsearch').value = result.searchKeywords.slice(0, 3).join(' ');
-    }
+    document.getElementById('jsearch').value = '';
     searchJobs();
     checkGrammar(resumeText);
   } catch(e) {
@@ -1038,10 +1042,20 @@ async function fetchAdzuna(query, location) {
 }
 
 function calcJobMatch(job, resumeSkills) {
-  if (!resumeSkills.length) return 70;
-  const jobText = [job.title, ...(job.tags || []), job.description].join(' ').toLowerCase();
-  const matched = resumeSkills.filter(s => jobText.includes(s)).length;
-  return Math.min(98, 48 + Math.round((matched / resumeSkills.length) * 50));
+  if (!resumeSkills.length) return 72;
+  const titleLower = (job.title||'').toLowerCase();
+  const jobText = [job.title, ...(job.tags||[]), job.description||''].join(' ').toLowerCase();
+
+  // Skills found in job (0–45 pts)
+  const matched = resumeSkills.filter(s => s.length > 2 && jobText.includes(s)).length;
+  const skillScore = Math.round((matched / Math.max(resumeSkills.length, 1)) * 45);
+
+  // Title relevance — does job title contain any skill? (0–33 pts)
+  const titleHit = resumeSkills.some(s => s.length > 3 && titleLower.includes(s)) ? 33 :
+                   resumeSkills.some(s => s.length > 2 && titleLower.includes(s)) ? 18 : 0;
+
+  // Base score (20 pts)
+  return Math.min(98, 20 + skillScore + titleHit);
 }
 
 async function apiCall(prompt, maxTokens) {
@@ -1218,6 +1232,7 @@ function renderAll(r) {
   savedJobs = new Set();
   resumeSkillsFound   = (r.keywords||[]).filter(k=>k.status==='found').map(k=>k.word.toLowerCase());
   resumeSkillsMissing = (r.keywords||[]).filter(k=>k.status==='missing').map(k=>k.word.toLowerCase());
+  resumeRoles = (r.roleCompare||[]).map(rc=>rc.role);
 
   // Score ring
   const score = Math.round(r.score || 0);
@@ -1400,12 +1415,13 @@ function _renderJobsPage() {
 }
 
 function filtJobs(type, btn) {
-  document.querySelectorAll('.jfilt .fb').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.jfilt .fb:not(.jsort)').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   let filtered = allJobs;
-  if (type === 'remote') filtered = allJobs.filter(j => /remote/i.test(j.location+j.type));
-  else if (type === 'high') filtered = allJobs.filter(j => j.match >= 80);
-  else if (type === 'saved') filtered = allJobs.filter(j => savedJobs.has(j.title));
+  if (type === 'remote')   filtered = allJobs.filter(j => /remote|wfh|work from home/i.test(j.location+j.type+j.description));
+  else if (type === 'high')   filtered = allJobs.filter(j => j.match >= 80);
+  else if (type === 'saved')  filtered = allJobs.filter(j => savedJobs.has(j.title));
+  else if (type === 'salary') filtered = allJobs.filter(j => j.salary);
   renderJobs(filtered);
 }
 
@@ -1428,27 +1444,90 @@ function applyJob(encodedUrl, title) {
 }
 
 async function searchJobs() {
-  const q = buildSearchQuery();
+  const manualQ = document.getElementById('jsearch').value.trim();
   const label = currentJobType === 'internship' ? 'internships' : currentJobType === 'fresher' ? 'fresher jobs' : 'jobs';
-  const skillChips = resumeSkillsFound.slice(0, 5).map(s =>
+
+  // Multi-role search: when no manual query & AI roles available, search top 3 roles in parallel
+  let queries;
+  if (!manualQ && resumeRoles.length && currentJobType === 'jobs') {
+    const typeTag = '';
+    queries = resumeRoles.slice(0, 3).map(r => r + typeTag);
+  } else {
+    queries = [buildSearchQuery()];
+  }
+
+  const skillChips = resumeSkillsFound.slice(0, 4).map(s =>
     `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;background:rgba(0,255,255,.1);color:var(--nc);border:1px solid rgba(0,255,255,.2)">${s}</span>`
   ).join('');
   document.getElementById('jgrid').innerHTML = `
-    <div style="grid-column:1/-1;padding:28px;text-align:center">
-      <div style="font-size:22px;margin-bottom:10px">🤖</div>
+    <div style="grid-column:1/-1;padding:32px;text-align:center">
+      <div style="font-size:26px;margin-bottom:10px">🤖</div>
       <div style="color:var(--nc);font-size:14px;font-weight:600;margin-bottom:10px">Finding ${label} for you…</div>
-      ${skillChips ? `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${skillChips}</div>` : ''}
-      <div style="color:var(--t3);font-size:12px;letter-spacing:1px">Searching Adzuna India…</div>
+      ${skillChips ? `<div style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${skillChips}</div>` : ''}
+      <div style="color:var(--t3);font-size:12px;letter-spacing:1px">Searching ${queries.length > 1 ? queries.length + ' job roles' : '"' + queries[0] + '"'} on Adzuna India…</div>
     </div>`;
-  const jobs = await fetchRealJobs(q);
-  if (!jobs.length) {
-    document.getElementById('jgrid').innerHTML = '<div style="grid-column:1/-1;padding:20px;color:var(--t2)">No results found. Try different keywords or select another state.</div>';
-    return;
-  }
-  const skills = resumeSkillsFound.length ? resumeSkillsFound : (allJobs[0]?.tags || []).map(s => s.toLowerCase());
-  allJobs = jobs.map(j => ({ ...j, match: calcJobMatch(j, skills) })).sort((a,b) => b.match - a.match);
-  renderJobs(allJobs);
+
+  // Parallel fetch all queries
+  const results = await Promise.all(queries.map(q => fetchRealJobs(q)));
+
+  // Merge + deduplicate by title+company
+  const seen = new Set();
+  let jobs = results.flat().filter(j => {
+    const key = (j.title + '|' + j.company).toLowerCase().replace(/\s/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (!jobs.length) { renderNoResults(); return; }
+
+  const skills = resumeSkillsFound.length ? resumeSkillsFound : [];
+  allJobs = jobs.map(j => ({ ...j, match: calcJobMatch(j, skills) }));
+  applySortAndRender();
   renderPortalButtons();
+}
+
+function renderNoResults() {
+  const suggestions = [
+    ...resumeRoles.slice(0, 3),
+    'fresher entry level',
+    'remote work from home'
+  ].filter(Boolean).slice(0, 5);
+  document.getElementById('jgrid').innerHTML = `
+    <div style="grid-column:1/-1;text-align:center;padding:36px 20px">
+      <div style="font-size:36px;margin-bottom:12px">😕</div>
+      <div style="color:var(--t);font-size:15px;font-weight:600;margin-bottom:6px">No exact matches found</div>
+      <div style="color:var(--t2);font-size:13px;margin-bottom:18px">Try one of these:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        ${suggestions.map(s=>`<button class="fb" onclick="quickSearch(${JSON.stringify(s)})">🔍 ${s}</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function quickSearch(q) {
+  document.getElementById('jsearch').value = q;
+  searchJobs();
+}
+
+function applySortAndRender() {
+  const sorted = [...allJobs];
+  if (sortMode === 'salary') {
+    sorted.sort((a, b) => {
+      const sa = parseInt((a.salary||'0').replace(/[^\d]/g,'').slice(0,4)||0);
+      const sb = parseInt((b.salary||'0').replace(/[^\d]/g,'').slice(0,4)||0);
+      return sb - sa;
+    });
+  } else {
+    sorted.sort((a, b) => b.match - a.match);
+  }
+  renderJobs(sorted);
+}
+
+function sortJobs(mode, btn) {
+  sortMode = mode;
+  document.querySelectorAll('.jsort').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  applySortAndRender();
 }
 
 // ─── JOB TYPE & CATEGORY ───────────────────────────────────
@@ -1898,7 +1977,7 @@ function resetAll() {
   document.getElementById('dtit').textContent = 'Drop your resume here';
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
-  resumeText=''; allJobs=[]; savedJobs=new Set(); resumeSkillsFound=[]; resumeSkillsMissing=[];
+  resumeText=''; allJobs=[]; savedJobs=new Set(); resumeSkillsFound=[]; resumeSkillsMissing=[]; resumeRoles=[]; sortMode='match';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
