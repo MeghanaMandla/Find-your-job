@@ -13,8 +13,6 @@
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://meghanamandla.github.io/Find-your-job/"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -296,8 +294,22 @@ textarea.pa::placeholder{color:var(--t3)}
 /* GRAMMAR */
 .gram-issue{border-radius:8px;padding:10px 14px;margin-bottom:6px}
 
+/* HAMBURGER */
+.hbg{display:none;background:none;border:1px solid var(--bd);color:var(--t);font-size:20px;padding:5px 11px;border-radius:8px;cursor:pointer;line-height:1}
+/* PAGINATION */
+.jpag{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:12px;padding:16px 0}
+.jpag button{padding:8px 20px;border:1px solid var(--bd);border-radius:20px;background:var(--gl);color:var(--t2);font-size:13px;cursor:pointer;transition:all .2s}
+.jpag button:hover:not(:disabled){border-color:var(--nc);color:var(--nc)}
+.jpag button:disabled{opacity:.3;cursor:not-allowed}
+.jpag .pinfo{font-size:13px;color:var(--t2);min-width:70px;text-align:center}
+
 @media(max-width:700px){
-  nav{padding:12px 16px}.nav-links{gap:10px}.nav-links a{font-size:11px}
+  nav{padding:12px 16px;flex-wrap:wrap;gap:8px}
+  .hbg{display:block}
+  .nav-links{display:none;flex-direction:column;width:100%;gap:12px;padding:10px 0;border-top:1px solid var(--bd)}
+  .nav-links.open{display:flex}
+  .nav-links a{font-size:13px}
+  .nbtn{display:none}
   .sh{grid-template-columns:1fr;text-align:center}.srw{margin:0 auto}
   .srow{grid-template-columns:repeat(3,1fr)}
   .tabs{gap:2px}.tbtn{font-size:10px;padding:7px 3px}
@@ -315,10 +327,11 @@ textarea.pa::placeholder{color:var(--t3)}
 
 <nav>
   <div class="logo" onclick="resetAll()">⚡ RESUME·AI</div>
-  <div class="nav-links">
-    <a onclick="resetAll()">Home</a>
-    <a onclick="showTab('jobs')">Jobs</a>
-    <a onclick="showTab('interview')">Interview</a>
+  <button class="hbg" id="hbg" onclick="toggleNav()" aria-label="Menu">☰</button>
+  <div class="nav-links" id="navLinks">
+    <a onclick="resetAll();closeNav()">Home</a>
+    <a onclick="showTab('jobs');closeNav()">Jobs</a>
+    <a onclick="showTab('interview');closeNav()">Interview</a>
     <a href="https://github.com" target="_blank">GitHub ↗</a>
   </div>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
@@ -672,11 +685,20 @@ const ADZUNA_APP_KEY = 'a71a9b3cbffdb932' + '89200c92d858af66';
   let mx=0,my=0;
   window.addEventListener('mousemove',e=>{mx=(e.clientX/innerWidth-.5)*2;my=-(e.clientY/innerHeight-.5)*2});
   window.addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();r.setSize(innerWidth,innerHeight)});
-  (function a(t){requestAnimationFrame(a);pts.rotation.y=t*.00007+mx*.035;pts.rotation.x=t*.000035+my*.018;r.render(sc,cam);})(0);
+  let paused=false;
+  document.addEventListener('visibilitychange',()=>{paused=document.hidden;});
+  (function a(t){requestAnimationFrame(a);if(paused)return;pts.rotation.y=t*.00007+mx*.035;pts.rotation.x=t*.000035+my*.018;r.render(sc,cam);})(0);
 })();
+
+// ─── LAZY SCRIPT LOADER ────────────────────────────────────
+function loadScript(src) {
+  if(document.querySelector(`script[src="${src}"]`))return Promise.resolve();
+  return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+}
 
 // ─── PDF TEXT EXTRACTOR — PDF.js ──────────────────────────
 async function extractPDFText(file) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
   if (!window.pdfjsLib) throw new Error('PDF.js not loaded. Please refresh and try again.');
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -700,6 +722,7 @@ async function extractPDFText(file) {
 }
 // ─── DOCX TEXT EXTRACTOR — Mammoth.js ─────────────────────
 async function extractDOCXText(file) {
+  await loadScript('https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js');
   if (!window.mammoth) throw new Error('Mammoth.js not loaded. Please refresh and try again.');
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
@@ -711,6 +734,8 @@ async function extractDOCXText(file) {
 const drop = document.getElementById('drop');
 const fi = document.getElementById('fi');
 let resumeText = '', allJobs = [], savedJobs = new Set();
+let currentFilteredJobs = [], jobPage = 1;
+const JOBS_PER_PAGE = 6;
 
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
@@ -1286,33 +1311,57 @@ function renderAll(r) {
 
 // ─── JOBS ──────────────────────────────────────────────────
 function renderJobs(jobs) {
+  currentFilteredJobs = jobs;
+  jobPage = 1;
+  _renderJobsPage();
+}
+
+function changePage(p) {
+  jobPage = p;
+  _renderJobsPage();
+  document.getElementById('jgrid').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function _jobCard(j) {
+  const m = Math.round(j.match||0);
+  const mc = m>=80?'var(--ng)':m>=65?'var(--nc)':'var(--npi)';
+  const isSaved = savedJobs.has(j.title);
+  const safeTitle = (j.title||'').replace(/['"]/g,'');
+  return `<div class="jcard" data-match="${m}" data-type="${(j.type||'').toLowerCase()}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <span style="background:rgba(0,255,136,.12);color:var(--ng);border:1px solid rgba(0,255,136,.3);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:1px">🟢 OPEN</span>
+      <span class="jmb" style="position:static;background:${mc}22;color:${mc};border:1px solid ${mc}44">${m}% match</span>
+    </div>
+    <div class="jco">${j.company||''}</div>
+    <div class="jti">${j.title||''}</div>
+    <div class="jdesc">${j.description||''}</div>
+    <div class="jtags">${(j.tags||[]).map(t=>`<span class="jtag">${t}</span>`).join('')}</div>
+    <div class="jmet">
+      <span>📍 ${j.location||''}</span>
+      <span>💰 ${j.salary||''}</span>
+      <span>🕐 ${j.type||''}</span>
+    </div>
+    <div class="jbtns">
+      <button class="japply" onclick="applyJob('${encodeURIComponent(j.applyUrl||'')}','${safeTitle}')">Apply Now ↗</button>
+      <button class="jsave ${isSaved?'saved':''}" onclick="toggleSave('${safeTitle}',this)" title="${isSaved?'Saved':'Save job'}" style="font-size:18px;padding:8px 14px">${isSaved?'❤️':'🤍'}</button>
+    </div>
+  </div>`;
+}
+
+function _renderJobsPage() {
   const el = document.getElementById('jgrid');
+  const jobs = currentFilteredJobs;
   if (!jobs.length) { el.innerHTML = '<p style="color:var(--t2);font-size:14px;padding:20px">No jobs match this filter.</p>'; return; }
-  el.innerHTML = jobs.map(j => {
-    const m = Math.round(j.match||0);
-    const mc = m>=80?'var(--ng)':m>=65?'var(--nc)':'var(--npi)';
-    const isSaved = savedJobs.has(j.title);
-    const safeTitle = (j.title||'').replace(/['"]/g,'');
-    return `<div class="jcard" data-match="${m}" data-type="${(j.type||'').toLowerCase()}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <span style="background:rgba(0,255,136,.12);color:var(--ng);border:1px solid rgba(0,255,136,.3);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:1px">🟢 OPEN</span>
-        <span class="jmb" style="position:static;background:${mc}22;color:${mc};border:1px solid ${mc}44">${m}% match</span>
-      </div>
-      <div class="jco">${j.company||''}</div>
-      <div class="jti">${j.title||''}</div>
-      <div class="jdesc">${j.description||''}</div>
-      <div class="jtags">${(j.tags||[]).map(t=>`<span class="jtag">${t}</span>`).join('')}</div>
-      <div class="jmet">
-        <span>📍 ${j.location||''}</span>
-        <span>💰 ${j.salary||''}</span>
-        <span>🕐 ${j.type||''}</span>
-      </div>
-      <div class="jbtns">
-        <button class="japply" onclick="applyJob('${encodeURIComponent(j.applyUrl||'')}','${safeTitle}')">Apply Now ↗</button>
-        <button class="jsave ${isSaved?'saved':''}" onclick="toggleSave('${safeTitle}',this)" title="${isSaved?'Saved':'Save job'}" style="font-size:18px;padding:8px 14px">${isSaved?'❤️':'🤍'}</button>
-      </div>
-    </div>`;
-  }).join('');
+  const totalPages = Math.ceil(jobs.length / JOBS_PER_PAGE);
+  jobPage = Math.max(1, Math.min(jobPage, totalPages));
+  const start = (jobPage - 1) * JOBS_PER_PAGE;
+  const pageJobs = jobs.slice(start, start + JOBS_PER_PAGE);
+  const pagination = totalPages > 1 ? `<div class="jpag">
+    <button onclick="changePage(${jobPage-1})" ${jobPage<=1?'disabled':''}>← Prev</button>
+    <span class="pinfo">Page ${jobPage} of ${totalPages} <span style="color:var(--t3);font-size:11px">(${jobs.length} jobs)</span></span>
+    <button onclick="changePage(${jobPage+1})" ${jobPage>=totalPages?'disabled':''}>Next →</button>
+  </div>` : '';
+  el.innerHTML = pageJobs.map(_jobCard).join('') + pagination;
 }
 
 function filtJobs(type, btn) {
@@ -1761,6 +1810,13 @@ function dlRW() { dl('improved-resume.txt', document.getElementById('rwb').textC
 function copyCL() { navigator.clipboard.writeText(document.getElementById('clb').textContent).then(()=>showToast('📋 Cover letter copied!')); }
 function dlCL() { dl('cover-letter.txt', document.getElementById('clb').textContent); }
 function dl(name, text) { const a = Object.assign(document.createElement('a'),{href:'data:text/plain;charset=utf-8,'+encodeURIComponent(text),download:name}); a.click(); }
+
+function toggleNav() {
+  document.getElementById('navLinks').classList.toggle('open');
+}
+function closeNav() {
+  document.getElementById('navLinks').classList.remove('open');
+}
 
 function showToast(msg) {
   const t = document.getElementById('toast');
