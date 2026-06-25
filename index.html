@@ -1158,13 +1158,23 @@ function calcJobMatch(job, resumeSkills) {
   return Math.min(98, 20 + skillScore + titleHit);
 }
 
+function getGeminiText(data) {
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  return (
+    parts.map(part => part.text || '').join('\n') ||
+    data?.output_text ||
+    data?.steps?.find(step => step.type === 'model_output')?.content?.find(content => content.type === 'text')?.text ||
+    ''
+  ).trim();
+}
+
 async function apiCall(prompt, maxTokens) {
   const apiKey = SITE_API_KEY;
   const provider = SITE_PROVIDER;
   let resp, raw;
 
   if (provider === 'gemini') {
-    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite-preview-06-17'];
+    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro'];
     let lastErr;
     for (const model of GEMINI_MODELS) {
       let success = false;
@@ -1173,21 +1183,20 @@ async function apiCall(prompt, maxTokens) {
           document.getElementById('lst') && (document.getElementById('lst').textContent = `Retrying (attempt ${attempt+1})...`);
           await new Promise(r => setTimeout(r, 2000 * attempt));
         }
-        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions`, {
+        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify({ model, input: prompt })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              maxOutputTokens: maxTokens,
+              temperature: 0.4
+            }
+          })
         });
         if (resp.ok) {
           const data = await resp.json();
-          // output_text is the top-level convenience field in REST responses
-          const modelStep = data.steps?.find(s => s.type === 'model_output');
-          raw = (
-            data.output_text ||
-            modelStep?.content?.find(c => c.type === 'text')?.text ||
-            modelStep?.content?.[0]?.text ||
-            ''
-          ).trim();
+          raw = getGeminiText(data);
           console.log('Gemini ok, raw (first 300):', raw.slice(0, 300));
           if (raw) { success = true; break; }
           // Empty response — try next model
@@ -1827,13 +1836,19 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
 
     let resp, letter;
     if (provider === 'gemini') {
-      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({ model: 'gemini-2.5-flash', input: coverPrompt })
+      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: coverPrompt }] }],
+          generationConfig: {
+            maxOutputTokens: 800,
+            temperature: 0.7
+          }
+        })
       });
       const data = await resp.json();
-      const ms = data.steps?.find(s => s.type === 'model_output');
-      letter = (data.output_text || ms?.content?.find(c=>c.type==='text')?.text || ms?.content?.[0]?.text || '').trim();
+      letter = getGeminiText(data);
       // Groq fallback
       if (!letter && SITE_API_KEY_NVIDIA) {
         const nr = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
