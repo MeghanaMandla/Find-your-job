@@ -1295,6 +1295,52 @@ async function apiCall(prompt, maxTokens) {
   console.error('Unparseable response:', raw.slice(0, 800));
   throw new Error(`Parse failed. AI said: "${preview}"`);
 }
+// ─── COUNT UP (spring physics port of motion/react CountUp) ───
+function countUp(el, from, to, { duration = 1, separator = '', delay = 0, suffix = '' } = {}) {
+  // Same spring params as the React component
+  const damping   = 20 + 40 * (1 / duration);
+  const stiffness = 100 * (1 / duration);
+
+  const maxDec = Math.max(
+    (from.toString().split('.')[1]?.replace(/0+$/, '') || '').length,
+    (to.toString().split('.')[1]?.replace(/0+$/, '') || '').length
+  );
+
+  function fmt(v) {
+    const n = maxDec > 0 ? +v.toFixed(maxDec) : Math.round(v);
+    const s = separator
+      ? new Intl.NumberFormat('en-US').format(n).replace(/,/g, separator)
+      : String(n);
+    return s + suffix;
+  }
+
+  let pos = from, vel = 0, last = null, raf;
+
+  function tick(ts) {
+    if (!last) last = ts;
+    const dt = Math.min((ts - last) / 1000, 0.064);
+    last = ts;
+    vel += (-stiffness * (pos - to) - damping * vel) * dt;
+    pos += vel * dt;
+    el.textContent = fmt(pos);
+    if (Math.abs(pos - to) < 0.5 && Math.abs(vel) < 0.5) { el.textContent = fmt(to); return; }
+    raf = requestAnimationFrame(tick);
+  }
+
+  el.textContent = fmt(from);
+  const t = setTimeout(() => { raf = requestAnimationFrame(tick); }, delay * 1000);
+  return () => { clearTimeout(t); cancelAnimationFrame(raf); };
+}
+
+// Trigger countUp when element scrolls into view (mirrors useInView once:true)
+function countUpInView(el, from, to, opts) {
+  if (!window.IntersectionObserver) { countUp(el, from, to, opts); return; }
+  const obs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { obs.disconnect(); countUp(el, from, to, opts); }
+  }, { threshold: 0.2 });
+  obs.observe(el);
+}
+
 // ─── RENDER ALL ────────────────────────────────────────────
 function renderAll(r) {
   allJobs = r.jobs || [];
@@ -1306,29 +1352,39 @@ function renderAll(r) {
   // Score ring
   const score = Math.round(r.score || 0);
   const offset = 408.41 - (score / 100) * 408.41;
-  document.getElementById('snum').textContent = score + '%';
   document.getElementById('stit').textContent = r.scoreTitle || '';
   document.getElementById('sdesc').textContent = r.scoreDesc || '';
   setTimeout(() => { document.getElementById('sfc').style.strokeDashoffset = offset; }, 200);
+  countUpInView(document.getElementById('snum'), 0, score, { duration: 1.5, suffix: '%' });
 
   // Chips
   const cc = ['cc','cp','cpi','cg','ca'];
   document.getElementById('schips').innerHTML = (r.chips||[]).map((c,i)=>`<span class="chip ${cc[i%5]}">${c}</span>`).join('');
 
-  // Stats
-  document.getElementById('ss1').textContent = r.skillsCount || 0;
-  document.getElementById('ss2').textContent = allJobs.length;
-  document.getElementById('ss3').textContent = r.missingCount || 0;
-  document.getElementById('ss4').textContent = r.experienceYears || '—';
-  document.getElementById('ss5').textContent = r.tipsCount || 8;
+  // Stats — CountUp spring animation
+  countUpInView(document.getElementById('ss1'), 0, +(r.skillsCount||0),  { duration: 1.2 });
+  countUpInView(document.getElementById('ss2'), 0, allJobs.length,        { duration: 1.4 });
+  countUpInView(document.getElementById('ss3'), 0, +(r.missingCount||0), { duration: 1.0 });
+  const exp = r.experienceYears;
+  const expNum = parseFloat(exp);
+  if (!isNaN(expNum)) countUpInView(document.getElementById('ss4'), 0, expNum, { duration: 1.3, suffix: exp?.toString().includes('yr')||exp?.toString().includes('Yr') ? ' yrs' : '' });
+  else document.getElementById('ss4').textContent = exp || '—';
+  countUpInView(document.getElementById('ss5'), 0, +(r.tipsCount||8), { duration: 0.9 });
 
-  // Skill bars
+  // Skill bars — percentage labels animate with CountUp, bars slide in
   document.getElementById('skillbars').innerHTML = (r.skillBars||[]).map(s => `
     <div class="sbr">
-      <div class="sbrt"><span class="sbrn">${s.name}</span><span class="sbrp">${Math.round(s.pct)}%</span></div>
+      <div class="sbrt"><span class="sbrn">${s.name}</span><span class="sbrp">0%</span></div>
       <div class="sbrb"><div class="sbrf" data-w="${Math.round(s.pct)}" style="width:0%;background:linear-gradient(90deg,${s.color||'#00ffff'}88,${s.color||'#00ffff'})"></div></div>
     </div>`).join('');
-  setTimeout(() => document.querySelectorAll('.sbrf').forEach(el => { el.style.width = el.dataset.w + '%'; }), 350);
+  setTimeout(() => {
+    document.querySelectorAll('.sbrf').forEach(el => { el.style.width = el.dataset.w + '%'; });
+    document.querySelectorAll('.sbr').forEach((row, i) => {
+      const pctEl = row.querySelector('.sbrp');
+      const pct   = +(row.querySelector('.sbrf').dataset.w || 0);
+      countUpInView(pctEl, 0, pct, { duration: 1 + i * 0.1, delay: i * 0.05, suffix: '%' });
+    });
+  }, 350);
 
   // Keywords
   document.getElementById('kwwrap').innerHTML = (r.keywords||[]).map(k => {
