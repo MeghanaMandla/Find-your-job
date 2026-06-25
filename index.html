@@ -948,7 +948,7 @@ ${resumeSlice}`;
   const [r1, r2, realJobs] = await Promise.all([
     apiCall(prompt1, 4000),
     apiCall(prompt2, 2000),
-    fetchRealJobs('software developer india') // placeholder while AI runs
+    fetchRealJobs('software developer') // Adzuna India API — no country suffix needed
   ]);
 
   const merged = { ...r1, ...r2 };
@@ -966,30 +966,18 @@ ${resumeSlice}`;
   return merged;
 }
 
-// ─── REAL JOB FETCHERS — Remotive + Arbeitnow (both free, no key) ───
+// ─── REAL JOB FETCHER — Adzuna India only ──────────────────
 async function fetchRealJobs(query) {
   const state = document.getElementById('indiaState')?.value || '';
   const city  = STATE_CITY[state] || '';
-  const [adzuna, remotive, arbeitnow] = await Promise.all([
-    fetchAdzuna(query, city || 'India'),
-    fetchRemotive(query),
-    fetchArbeitnow(query)
-  ]);
-  const seen = new Set();
-  // Adzuna first (most India-specific), then Remotive, then Arbeitnow
-  return [...adzuna, ...remotive, ...arbeitnow].filter(j => {
-    const key = (j.title + j.company).toLowerCase().replace(/\s/g, '');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 30);
+  return fetchAdzuna(query, city || 'India');
 }
 
 async function fetchAdzuna(query, location) {
   try {
     const q   = encodeURIComponent(query.slice(0, 80));
     const loc = encodeURIComponent(location || 'India');
-    const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=15&what=${q}&where=${loc}&content-type=application/json&sort_by=relevance&salary_include_unknown=1`;
+    const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=20&what=${q}&where=${loc}&content-type=application/json&sort_by=relevance&salary_include_unknown=1`;
     const resp = await fetch(url);
     if (!resp.ok) return [];
     const data = await resp.json();
@@ -1011,64 +999,6 @@ async function fetchAdzuna(query, location) {
       };
     });
   } catch(e) { console.warn('Adzuna fetch failed:', e); return []; }
-}
-
-function isIndiaEligible(loc) {
-  const l = (loc || '').toLowerCase();
-  return !l || l.includes('india') || l.includes('worldwide') ||
-         l.includes('remote') || l.includes('anywhere') ||
-         l.includes('asia') || l.includes('global') || l === '';
-}
-
-async function fetchRemotive(query) {
-  try {
-    const q = encodeURIComponent(query.slice(0, 100));
-    const resp = await fetch(`https://remotive.com/api/remote-jobs?search=${q}&limit=20`);
-    if (!resp.ok) return [];
-    const data = await resp.json();
-    return (data.jobs || [])
-      .filter(j => isIndiaEligible(j.candidate_required_location))
-      .map(j => ({
-        title: j.title || '',
-        company: j.company_name || '',
-        location: j.candidate_required_location ? j.candidate_required_location : 'Remote',
-        salary: j.salary || '',
-        type: (j.job_type || 'full_time').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        tags: (j.tags || []).slice(0, 5),
-        description: (j.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 220) + '…',
-        applyUrl: j.url || '',
-        match: 70,
-        source: 'Remotive'
-      }));
-  } catch(e) { return []; }
-}
-
-async function fetchArbeitnow(query) {
-  try {
-    const resp = await fetch('https://arbeitnow.com/api/job-board-api?page=1');
-    if (!resp.ok) return [];
-    const data = await resp.json();
-    const kws = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    return (data.data || [])
-      .filter(j => j.remote === true) // only remote jobs (India-eligible)
-      .filter(j => {
-        const txt = (j.title + ' ' + (j.tags || []).join(' ')).toLowerCase();
-        return kws.some(k => txt.includes(k));
-      })
-      .slice(0, 8)
-      .map(j => ({
-        title: j.title || '',
-        company: j.company_name || '',
-        location: 'Remote',
-        salary: '',
-        type: (j.job_types?.[0] || 'Full Time'),
-        tags: (j.tags || []).slice(0, 5),
-        description: (j.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 220) + '…',
-        applyUrl: j.url || '',
-        match: 70,
-        source: 'Arbeitnow'
-      }));
-  } catch(e) { return []; }
 }
 
 function calcJobMatch(job, resumeSkills) {
