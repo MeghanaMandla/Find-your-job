@@ -3254,7 +3254,7 @@ function resetAll() {
     } catch(e){}
   };
 
-  // ── Gymnopédie No. 1 — Erik Satie (BPM 54, 3/4 time) ──
+  // ── Gymnopédie No. 1 — Erik Satie (melody only, clean) ──
   function startAmbient(){
     if (ambGain) return;
     if (!ctx) ctx = new AC();
@@ -3262,129 +3262,70 @@ function resetAll() {
     const c = ctx;
     ambPlaying = true;
 
-    // Master bus — slow fade-in
+    // Master bus — gentle fade-in over 4s
     ambGain = c.createGain();
     ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.92, c.currentTime + 5);
+    ambGain.gain.linearRampToValueAtTime(0.7, c.currentTime + 4);
     ambGain.connect(c.destination);
 
-    // Concert-hall reverb: two delay lines through a warm low-pass
-    const rv1=c.createDelay(3), rv1g=c.createGain(), rvLpf=c.createBiquadFilter();
-    const rv2=c.createDelay(2), rv2g=c.createGain();
-    rv1.delayTime.value=1.05; rv1g.gain.value=0.3;
-    rv2.delayTime.value=0.62; rv2g.gain.value=0.18;
-    rvLpf.type='lowpass'; rvLpf.frequency.value=2000;
-    ambGain.connect(rv1); rv1.connect(rv1g); rv1g.connect(rvLpf); rvLpf.connect(c.destination);
-    ambGain.connect(rv2); rv2.connect(rv2g); rv2g.connect(c.destination);
+    // Single light reverb — one delay line, low-passed (no feedback clutter)
+    const rvD=c.createDelay(2.5), rvG=c.createGain(), rvLpf=c.createBiquadFilter();
+    rvD.delayTime.value=0.9; rvG.gain.value=0.22;
+    rvLpf.type='lowpass'; rvLpf.frequency.value=1800;
+    ambGain.connect(rvD); rvD.connect(rvG); rvG.connect(rvLpf); rvLpf.connect(c.destination);
 
-    // Subtle room noise (barely audible breath)
-    const nBuf=c.createBuffer(1,c.sampleRate*4,c.sampleRate);
-    const nDat=nBuf.getChannelData(0);
-    for(let i=0;i<nDat.length;i++) nDat[i]=Math.random()*2-1;
-    const ns=c.createBufferSource(); ns.buffer=nBuf; ns.loop=true;
-    const nf=c.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=340; nf.Q.value=0.12;
-    const ng=c.createGain(); ng.gain.value=0.007;
-    ns.connect(nf); nf.connect(ng); ng.connect(ambGain);
-    ns.start(); ambOscs.push(ns);
+    const beat=60/54; // ~1.111s per quarter note (BPM 54)
 
-    // Tempo
-    const beat=60/54; // ~1.111s per quarter note
-
-    // ── Gymnopédie No. 1 melody (right hand) ──
-    // [frequency_hz, duration_in_quarter_beats]
+    // Gymnopédie No. 1 — Theme A + A' only (confirmed notes)
     const mel=[
-      // Theme A — bars 1-8
-      [392.00,2],[440.00,1],  // G4 A4
-      [493.88,2],[440.00,1],  // B4 A4
+      // Theme A — bars 1-6
+      [392.00,2],[440.00,1],  // G4  A4
+      [493.88,2],[440.00,1],  // B4  A4
       [392.00,3],             // G4
-      [392.00,2],[440.00,1],  // G4 A4
-      [493.88,2],[440.00,1],  // B4 A4
+      [392.00,2],[440.00,1],  // G4  A4
+      [493.88,2],[440.00,1],  // B4  A4
       [392.00,3],             // G4
-      // Theme A' — bars 9-16
-      [587.33,2],[493.88,1],  // D5 B4
-      [440.00,2],[392.00,1],  // A4 G4
+      // Theme A' — bars 7-14
+      [587.33,2],[493.88,1],  // D5  B4
+      [440.00,2],[392.00,1],  // A4  G4
       [369.99,3],             // F#4
       [369.99,3],             // F#4
-      [329.63,2],[369.99,1],  // E4 F#4
-      [392.00,2],[440.00,1],  // G4 A4
+      [329.63,2],[369.99,1],  // E4  F#4
+      [392.00,2],[440.00,1],  // G4  A4
       [493.88,3],             // B4
       [493.88,3],             // B4
-      // Repeat A — bars 17-22
+      // Repeat Theme A — bars 15-20
       [392.00,2],[440.00,1],
       [493.88,2],[440.00,1],
       [392.00,3],
       [392.00,2],[440.00,1],
       [493.88,2],[440.00,1],
       [392.00,3],
-      // Theme B — bars 23-32
-      [659.25,2],[587.33,1],  // E5 D5
-      [493.88,2],[440.00,1],  // B4 A4
-      [392.00,3],             // G4
-      [493.88,2],[440.00,1],  // B4 A4
-      [392.00,2],[369.99,1],  // G4 F#4
-      [329.63,3],             // E4
-      [329.63,3],             // E4
-      [293.66,2],[329.63,1],  // D4 E4
-      [369.99,2],[440.00,1],  // F#4 A4
-      [493.88,3],             // B4
-      [493.88,3],             // B4
     ];
 
-    // Left-hand chord accompaniment (one per bar = 3 beats)
-    const chords=[
-      [98.00,246.94,293.66],  // G2-B3-D3  G major
-      [73.42,146.83,220.00],  // D2-D3-A3  D5
-      [82.41,164.81,246.94],  // E2-E3-B3  E minor
-      [73.42,146.83,196.00],  // D2-D3-G3  G/D
-      [65.41,130.81,196.00],  // C2-C3-G3  C major
-      [73.42,110.00,220.00],  // D2-A2-A3  D
-      [82.41,164.81,220.00],  // E2-E3-A3  A/E
-      [73.42,146.83,246.94],  // D2-D3-B3  Bm/D
-    ];
-
-    // Piano note: fast attack, natural exponential decay (4 harmonics)
+    // Piano note: fundamental + one soft octave harmonic only
+    // (more harmonics = more beating/clash — keep it pure)
     function noteOn(freq, t, dur){
-      const decay=Math.min(dur*0.9+0.5, dur+1.4);
-      [[1,0.052],[2,0.020],[3,0.008],[4,0.003]].forEach(([h,v])=>{
+      const decay=Math.min(dur*0.85+0.4, dur+1.2);
+      [[1, 0.06],[2, 0.018]].forEach(([h,v])=>{
         const o=c.createOscillator(), g=c.createGain();
         o.type='sine'; o.frequency.value=freq*h;
-        g.gain.setValueAtTime(0,t);
-        g.gain.linearRampToValueAtTime(v,t+0.005);
-        g.gain.exponentialRampToValueAtTime(v*0.38,t+0.09);
-        g.gain.exponentialRampToValueAtTime(0.0001,t+decay);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(v, t+0.006);
+        g.gain.exponentialRampToValueAtTime(v*0.3, t+0.12);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+decay);
         o.connect(g); g.connect(ambGain);
-        o.start(t); o.stop(t+decay+0.06);
+        o.start(t); o.stop(t+decay+0.05);
       });
     }
 
-    // Soft left-hand chord (sine, slow attack, sustained)
-    function chordOn(freqs, t, dur){
-      freqs.forEach(freq=>{
-        const o=c.createOscillator(), g=c.createGain();
-        o.type='sine'; o.frequency.value=freq;
-        g.gain.setValueAtTime(0,t);
-        g.gain.linearRampToValueAtTime(0.016,t+0.07);
-        g.gain.exponentialRampToValueAtTime(0.009,t+dur*0.55);
-        g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-        o.connect(g); g.connect(ambGain);
-        o.start(t); o.stop(t+dur+0.06);
-      });
-    }
-
-    // Schedule one full playthrough starting at startTime, return end time
     function schedule(startTime){
-      // Chords: one per bar (3 beats)
-      const totalBeats=mel.reduce((s,[,b])=>s+b,0);
-      const bars=Math.ceil(totalBeats/3);
-      for(let b=0;b<bars;b++) chordOn(chords[b%chords.length], startTime+b*3*beat, 3*beat);
-      // Melody
       let t=startTime;
       mel.forEach(([freq,beats])=>{ noteOn(freq,t,beats*beat); t+=beats*beat; });
       return t;
     }
 
-    // Loop: pre-schedule 4 seconds before end so there's no gap
-    let nextLoop=c.currentTime+0.8;
+    let nextLoop=c.currentTime+0.6;
     function doLoop(){
       if(!ambPlaying) return;
       nextLoop=schedule(nextLoop);
