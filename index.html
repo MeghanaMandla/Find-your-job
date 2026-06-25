@@ -88,6 +88,13 @@ h1.tf-root{position:relative}
 .tf-tr{top:-10px;right:-10px;border-left:none;border-bottom:none}
 .tf-bl{bottom:-10px;left:-10px;border-right:none;border-top:none}
 .tf-br{bottom:-10px;right:-10px;border-left:none;border-top:none}
+/* RotatingText */
+.rt-wrapper{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;color:var(--t2);margin-bottom:20px;flex-wrap:wrap}
+.rt-root{display:inline-flex;align-items:center;justify-content:center;background:var(--nc);color:#000;border-radius:10px;padding:4px 14px;font-weight:800;font-size:17px;overflow:hidden;position:relative;min-width:160px;letter-spacing:.5px}
+.rt-inner{display:inline-flex;flex-wrap:nowrap;white-space:nowrap;align-items:center}
+.rt-word{display:inline-flex;overflow:hidden;padding-bottom:2px}
+.rt-char{display:inline-block}
+.rt-space{white-space:pre}
 .hsub{font-size:15px;color:var(--t2);max-width:540px;line-height:1.85;margin-bottom:28px}
 .hfeats{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:44px}
 .hf{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2)}
@@ -383,6 +390,10 @@ textarea.pa::placeholder{color:var(--t3)}
 <section class="hero" id="hsec">
   <div class="htag">⚡ AI-POWERED CAREER INTELLIGENCE</div>
   <h1><span class="hl1">Decode Your Resume.</span><span class="hl2">Unlock Your Future.</span></h1>
+  <div class="rt-wrapper">
+    Your AI assistant for
+    <span class="rt-root"><span class="rt-inner" id="rt-inner"></span></span>
+  </div>
   <p class="hsub">Upload your PDF resume — AI extracts your real skills, matches you to actual jobs, rewrites weak sections, writes cover letters, preps interviews, and builds your career roadmap.</p>
   <div class="hfeats">
     <div class="hf"><div class="d" style="background:var(--nc)"></div>Real PDF Parsing</div>
@@ -2055,6 +2066,95 @@ function initTrueFocus() {
 }
 
 initTrueFocus();
+
+// ─── ROTATING TEXT ─────────────────────────────────────────
+(function initRotatingText() {
+  const root = document.getElementById('rt-inner');
+  if (!root) return;
+
+  const TEXTS          = ['Job Search', 'ATS Scoring', 'Resume Rewrite', 'Interview Prep', 'Cover Letters', 'Career Growth'];
+  const STAGGER        = 0.025;   // seconds per character (matches staggerDuration)
+  const DURATION       = 400;     // ms (animationDuration 0.5s → 400ms feels snappier)
+  const INTERVAL       = 2200;    // ms display time between rotations
+  const SPRING_IN      = 'cubic-bezier(0.34,1.56,0.64,1)';  // spring damping:30 stiffness:400
+  const SPRING_OUT     = 'cubic-bezier(0.4,0,1,1)';
+
+  let idx = 0;
+
+  // Split text → [{chars[], needsSpace}] matching React elements memo
+  function splitText(text) {
+    const words = text.split(' ');
+    return words.map((word, i) => ({
+      chars: Array.from(word),
+      needsSpace: i < words.length - 1
+    }));
+  }
+
+  // Stagger delay for index i out of total, staggerFrom='last'
+  function delay(i, total) {
+    return (total - 1 - i) * STAGGER * 1000; // ms, staggerFrom='last'
+  }
+
+  // Build DOM + animate chars entering (y: 100% → 0)
+  function enter(text) {
+    root.innerHTML = '';
+    const wordObjs = splitText(text);
+    let charCount = 0;
+    const totalChars = wordObjs.reduce((s, w) => s + w.chars.length, 0);
+
+    wordObjs.forEach(({ chars, needsSpace }) => {
+      const wordEl = document.createElement('span');
+      wordEl.className = 'rt-word';
+
+      chars.forEach(ch => {
+        const el = document.createElement('span');
+        el.className = 'rt-char';
+        el.textContent = ch;
+        el.animate(
+          [{ transform: 'translateY(100%)' }, { transform: 'translateY(0%)' }],
+          { duration: DURATION, delay: delay(charCount, totalChars), easing: SPRING_IN, fill: 'both' }
+        );
+        wordEl.appendChild(el);
+        charCount++;
+      });
+
+      if (needsSpace) {
+        const sp = document.createElement('span');
+        sp.className = 'rt-space';
+        sp.textContent = ' ';
+        wordEl.appendChild(sp);
+      }
+      root.appendChild(wordEl);
+    });
+  }
+
+  // Animate existing chars exiting (y: 0 → -120%), returns Promise
+  function exit() {
+    const chars = Array.from(root.querySelectorAll('.rt-char'));
+    const total = chars.length;
+    if (!total) return Promise.resolve();
+    const anims = chars.map((el, i) =>
+      el.animate(
+        [{ transform: 'translateY(0%)' }, { transform: 'translateY(-120%)' }],
+        { duration: DURATION, delay: delay(i, total), easing: SPRING_OUT, fill: 'both' }
+      ).finished
+    );
+    return Promise.all(anims);
+  }
+
+  // Cycle: wait INTERVAL → exit → enter next
+  function schedule() {
+    setTimeout(async () => {
+      await exit();
+      idx = (idx + 1) % TEXTS.length;
+      enter(TEXTS[idx]);
+      schedule();
+    }, INTERVAL);
+  }
+
+  enter(TEXTS[idx]);
+  schedule();
+})();
 
 function resetAll() {
   document.getElementById('res').classList.remove('on');
