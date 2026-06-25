@@ -798,33 +798,40 @@ async function apiCall(prompt, maxTokens) {
   let resp, raw;
 
   if (provider === 'gemini') {
-    const GEMINI_MODELS = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-2.0-flash'];
     let lastErr;
     for (const model of GEMINI_MODELS) {
       let success = false;
       for (let attempt = 0; attempt < 4; attempt++) {
         if (attempt > 0) {
           document.getElementById('lst') && (document.getElementById('lst').textContent = `Retrying (attempt ${attempt+1})...`);
-          await new Promise(r => setTimeout(r, 1500 * attempt));
+          await new Promise(r => setTimeout(r, 2000 * attempt));
         }
-        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens }
-          })
+          body: JSON.stringify({ model, input: prompt })
         });
         if (resp.ok) {
           const data = await resp.json();
-          raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-          console.log('Gemini raw (first 300):', raw.slice(0, 300));
-          success = true; break;
+          // output_text is the top-level convenience field in REST responses
+          const modelStep = data.steps?.find(s => s.type === 'model_output');
+          raw = (
+            data.output_text ||
+            modelStep?.content?.find(c => c.type === 'text')?.text ||
+            modelStep?.content?.[0]?.text ||
+            ''
+          ).trim();
+          console.log('Gemini ok, raw (first 300):', raw.slice(0, 300));
+          if (raw) { success = true; break; }
+          // Empty response — try next model
+          lastErr = 'Empty response from ' + model;
+          break;
         }
         const e = await resp.json().catch(()=>({}));
         lastErr = e.error?.message || `Gemini error ${resp.status}`;
         console.warn(`Gemini ${model} attempt ${attempt+1} failed:`, lastErr);
-        const isRetryable = /quota|overload|503|429|500/i.test(lastErr);
+        const isRetryable = /high demand|overload|quota|503|429|500/i.test(lastErr);
         if (!isRetryable) break;
       }
       if (success) break;
@@ -897,8 +904,9 @@ async function apiCall(prompt, maxTokens) {
     } catch(_) {}
   }
 
+  const preview = raw.slice(0, 120).replace(/\n/g, ' ');
   console.error('Unparseable response:', raw.slice(0, 800));
-  throw new Error('AI returned an unexpected format. Please try again.');
+  throw new Error(`Parse failed. AI said: "${preview}"`);
 }
 // ─── RENDER ALL ────────────────────────────────────────────
 function renderAll(r) {
@@ -1088,12 +1096,13 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
 
     let resp, letter;
     if (provider === 'gemini') {
-      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`, {
+      resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/interactions`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({ contents: [{ parts: [{ text: coverPrompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1000 } })
+        body: JSON.stringify({ model: 'gemini-2.5-flash', input: coverPrompt })
       });
       const data = await resp.json();
-      letter = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      const ms = data.steps?.find(s => s.type === 'model_output');
+      letter = (data.output_text || ms?.content?.find(c=>c.type==='text')?.text || ms?.content?.[0]?.text || '').trim();
     } else if (provider === 'groq') {
       resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
