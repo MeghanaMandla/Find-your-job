@@ -2793,8 +2793,8 @@ void main(){vec4 c;mainImage(c,vUv*iResolution.xy);gl_FragColor=c;}`;
   gl.uniform1f(U.uZoom, 3.0);
   gl.uniform1f(U.uBgGlow, 0.4);
   gl.uniform1f(U.uOpacity, 1.0);
-  gl.uniform1f(U.uMouseEnabled, 1.0);
-  gl.uniform1f(U.uMouseStrength, 0.5);
+  gl.uniform1f(U.uMouseEnabled, 0.0);
+  gl.uniform1f(U.uMouseStrength, 0.0);
   gl.uniform1f(U.uMouseRadius, 1.0);
 
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
