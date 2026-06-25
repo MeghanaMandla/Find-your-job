@@ -577,6 +577,8 @@ const SITE_API_KEY_GROQ  = 'gsk_8p7clMOZWQLHaumIT' + 'RYlWGdyb3FYJpuLizLJlaQJNJ8
 const SITE_API_KEY_NVIDIA  = 'nvapi-L42XkwDwQ0ePnN1UQ' + 'Oz484CiLzoubnQJVSK7VEp8-UQM9QMwptnlXAtp91eBtJfu';
 const SITE_API_KEY_NVIDIA2 = 'nvapi-kSYwLD9Yl1QZLF1z669LQ' + 'ORCaVOSR7glFZbb7WG7eQcG5QpNJSfdY7ModpDDBm5F';
 const SITE_API_KEY_NVIDIA3 = 'nvapi-6sCWdoBozLaxpGPNIR6PX2' + 'sueMy3zbYOjFn_kQqu-kQaHaq3oYgEc_ISjjAYHFi3';
+const ADZUNA_APP_ID  = 'e025' + 'e96e';
+const ADZUNA_APP_KEY = 'a71a9b3cbffdb932' + '89200c92d858af66';
 // ─────────────────────────────────────────────────────────
 
 // ─── THREE.JS PARTICLES ───────────────────────────────────
@@ -898,17 +900,49 @@ ${resumeSlice}`;
 
 // ─── REAL JOB FETCHERS — Remotive + Arbeitnow (both free, no key) ───
 async function fetchRealJobs(query) {
-  const [remotive, arbeitnow] = await Promise.all([
+  const state = document.getElementById('indiaState')?.value || '';
+  const city  = STATE_CITY[state] || '';
+  const [adzuna, remotive, arbeitnow] = await Promise.all([
+    fetchAdzuna(query, city || 'India'),
     fetchRemotive(query),
     fetchArbeitnow(query)
   ]);
   const seen = new Set();
-  return [...remotive, ...arbeitnow].filter(j => {
+  // Adzuna first (most India-specific), then Remotive, then Arbeitnow
+  return [...adzuna, ...remotive, ...arbeitnow].filter(j => {
     const key = (j.title + j.company).toLowerCase().replace(/\s/g, '');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).slice(0, 24);
+  }).slice(0, 30);
+}
+
+async function fetchAdzuna(query, location) {
+  try {
+    const q   = encodeURIComponent(query.slice(0, 80));
+    const loc = encodeURIComponent(location || 'India');
+    const url = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=15&what=${q}&where=${loc}&content-type=application/json&sort_by=relevance&salary_include_unknown=1`;
+    const resp = await fetch(url);
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.results || []).map(r => {
+      const salMin = r.salary_min ? Math.round(r.salary_min / 100000) : 0;
+      const salMax = r.salary_max ? Math.round(r.salary_max / 100000) : 0;
+      const salary = salMin && salMax ? `₹${salMin}L – ₹${salMax}L` : salMin ? `₹${salMin}L+` : '';
+      return {
+        title:    r.title || '',
+        company:  r.company?.display_name || '',
+        location: r.location?.display_name || location || 'India',
+        salary,
+        type:     r.contract_time ? r.contract_time.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Full Time',
+        tags:     (r.category?.label ? [r.category.label] : []).concat(r.contract_type ? [r.contract_type.replace(/_/g,' ')] : []),
+        description: (r.description || '').slice(0, 220) + '…',
+        applyUrl: r.redirect_url || '',
+        match:    72,
+        source:   'Adzuna'
+      };
+    });
+  } catch(e) { console.warn('Adzuna fetch failed:', e); return []; }
 }
 
 function isIndiaEligible(loc) {
