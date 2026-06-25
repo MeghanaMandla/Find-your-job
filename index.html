@@ -95,7 +95,9 @@ h1.tf-root{position:relative}
 .rt-word{display:inline-flex;overflow:hidden;padding-bottom:2px}
 .rt-char{display:inline-block}
 .rt-space{white-space:pre}
-.hsub{font-size:15px;color:var(--t2);max-width:540px;line-height:1.85;margin-bottom:28px}
+.hsub{font-size:15px;color:var(--t2);max-width:540px;line-height:1.85;margin-bottom:28px;white-space:pre-wrap}
+.dt-enc{color:var(--nc);opacity:0.55}
+.dt-rev{color:inherit}
 /* LogoLoop ticker */
 .ll-root{position:relative;overflow:hidden;width:100%;margin-bottom:44px;--ll-gap:40px;padding:4px 0}
 .ll-root::before,.ll-root::after{content:'';position:absolute;top:0;bottom:0;width:clamp(40px,10%,140px);pointer-events:none;z-index:2}
@@ -2256,6 +2258,119 @@ initTrueFocus();
   enter(TEXTS[idx]);
   schedule();
 })();
+
+// ─── DECRYPTED TEXT (DecryptedText port) ───────────────────
+function initDecryptedText(el, {
+  speed            = 50,
+  maxIterations    = 10,
+  sequential       = false,
+  revealDirection  = 'start',
+  useOriginalCharsOnly = false,
+  characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+',
+  animateOn        = 'hover',
+  encryptedClassName = 'dt-enc',
+  revealedClassName  = 'dt-rev',
+} = {}) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const original = el.textContent;
+  const pool = useOriginalCharsOnly
+    ? [...new Set(original.split(''))].filter(c => c !== ' ')
+    : characters.split('');
+
+  function rand() { return pool[Math.floor(Math.random() * pool.length)]; }
+
+  function scramble(revealed) {
+    return original.split('').map((ch, i) => {
+      if (ch === ' ') return ' ';
+      return revealed.has(i) ? ch : rand();
+    }).join('');
+  }
+
+  function render(text, revealed, done) {
+    el.innerHTML = '';
+    // Screen-reader span with real text
+    const sr = document.createElement('span');
+    sr.style.cssText = 'position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0';
+    sr.textContent = original;
+    el.appendChild(sr);
+    // Visible chars
+    const vis = document.createElement('span');
+    vis.setAttribute('aria-hidden', 'true');
+    vis.innerHTML = text.split('').map((ch, i) => {
+      const cls = (revealed.has(i) || done) ? revealedClassName : encryptedClassName;
+      return `<span class="${cls}">${ch === ' ' ? ' ' : ch}</span>`;
+    }).join('');
+    el.appendChild(vis);
+  }
+
+  function getNext(revealed) {
+    const len = original.length;
+    if (revealDirection === 'end') return len - 1 - revealed.size;
+    if (revealDirection === 'center') {
+      const mid = Math.floor(len / 2);
+      const off = Math.floor(revealed.size / 2);
+      const idx = revealed.size % 2 === 0 ? mid + off : mid - off - 1;
+      if (idx >= 0 && idx < len && !revealed.has(idx)) return idx;
+      for (let i = 0; i < len; i++) if (!revealed.has(i)) return i;
+    }
+    return revealed.size; // 'start'
+  }
+
+  let tid = null;
+
+  function runAnimation() {
+    clearInterval(tid);
+    let revealed = new Set();
+    let iter = 0;
+    render(scramble(revealed), revealed, false);
+    tid = setInterval(() => {
+      if (sequential) {
+        if (revealed.size < original.length) {
+          revealed = new Set(revealed);
+          revealed.add(getNext(revealed));
+          render(scramble(revealed), revealed, false);
+        } else {
+          clearInterval(tid);
+          render(original, revealed, true);
+        }
+      } else {
+        render(scramble(revealed), revealed, false);
+        if (++iter >= maxIterations) {
+          clearInterval(tid);
+          render(original, revealed, true);
+        }
+      }
+    }, speed);
+  }
+
+  // Initial render
+  render(original, new Set(), true);
+
+  if (animateOn === 'hover') {
+    el.addEventListener('mouseenter', runAnimation);
+    el.addEventListener('mouseleave', () => { clearInterval(tid); render(original, new Set(), true); });
+  } else if (animateOn === 'view') {
+    let fired = false;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && !fired) { fired = true; obs.disconnect(); runAnimation(); }
+    }, { threshold: 0.1 });
+    obs.observe(el);
+  } else if (animateOn === 'click') {
+    render(scramble(new Set()), new Set(), false);
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', runAnimation);
+  }
+}
+
+// Apply to hero subtitle — sequential reveal left→right when scrolled into view
+initDecryptedText(document.querySelector('.hsub'), {
+  speed: 18,
+  sequential: true,
+  revealDirection: 'start',
+  animateOn: 'view',
+  characters: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}|;:,./<>?',
+});
 
 // ─── LOGO LOOP TICKER (LogoLoop port) ──────────────────────
 (function initLogoLoop() {
