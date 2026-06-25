@@ -64,6 +64,7 @@ nav{position:fixed;top:0;width:100%;z-index:100;padding:14px 40px;display:flex;a
 
 /* HERO */
 .hero{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:120px 20px 60px;text-align:center}
+.hero>*:not(canvas){position:relative;z-index:2}
 .htag{font-size:11px;letter-spacing:4px;color:var(--nc);text-transform:uppercase;margin-bottom:20px;opacity:.8}
 h1{font-size:clamp(34px,7vw,78px);font-weight:800;line-height:1.15;margin-bottom:20px}
 .hl1{display:block;color:transparent}
@@ -2650,13 +2651,191 @@ initDecryptedText(document.querySelector('.hsub'), {
   requestAnimationFrame(() => { buildCopies(); requestAnimationFrame(animate); });
 })();
 
+// ─── LIGHTFALL (WebGL falling-streaks hero background) ──────────────────────
+(function initLightfall() {
+  const hero = document.getElementById('hsec');
+  if (!hero) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1;';
+  hero.insertBefore(canvas, hero.firstChild);
+
+  const gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'high-performance' });
+  if (!gl) { canvas.remove(); return; }
+
+  const VS = `attribute vec2 position;attribute vec2 uv;varying vec2 vUv;
+void main(){vUv=uv;gl_Position=vec4(position,0.,1.);}`;
+
+  const FS = `precision highp float;
+uniform vec3 iResolution;uniform vec2 iMouse;uniform float iTime;
+uniform vec3 uColor0;uniform vec3 uColor1;uniform vec3 uColor2;uniform vec3 uColor3;
+uniform vec3 uColor4;uniform vec3 uColor5;uniform vec3 uColor6;uniform vec3 uColor7;
+uniform int uColorCount;
+uniform vec3 uBgColor;uniform vec3 uMouseColor;
+uniform float uSpeed;uniform int uStreakCount;uniform float uStreakWidth;
+uniform float uStreakLength;uniform float uGlow;uniform float uDensity;
+uniform float uTwinkle;uniform float uZoom;uniform float uBgGlow;uniform float uOpacity;
+uniform float uMouseEnabled;uniform float uMouseStrength;uniform float uMouseRadius;
+varying vec2 vUv;
+vec3 palette(float h){
+  int cnt=uColorCount;if(cnt<1)cnt=1;
+  int idx=int(floor(clamp(h,0.,.999999)*float(cnt)));
+  if(idx<=0)return uColor0;if(idx==1)return uColor1;if(idx==2)return uColor2;
+  if(idx==3)return uColor3;if(idx==4)return uColor4;if(idx==5)return uColor5;
+  if(idx==6)return uColor6;return uColor7;
+}
+vec3 tanhv(vec3 x){vec3 e=exp(-2.*x);return(1.-e)/(1.+e);}
+vec2 sceneC(vec2 frag,vec2 r){
+  vec2 P=(frag+frag-r)/r.x;float z=0.,d=1e3;vec4 O=vec4(0.);
+  for(int k=0;k<39;k++){
+    if(d<=1e-4)break;
+    O=z*normalize(vec4(P,uZoom,0.))-vec4(0.,4.,1.,0.)/4.5;
+    d=1.-sqrt(length(O*O));z+=d;
+  }
+  return vec2(O.x,atan(O.z,O.y));
+}
+void mainImage(out vec4 o,vec2 C){
+  vec2 r=iResolution.xy;
+  vec2 uv0=(C+C-r)/r.x;
+  float T=.1*iTime*uSpeed+9.;
+  float angR=max(1.,floor(6.28318*max(uDensity,.05)+.5));
+  vec2 Y=vec2(5e-3,6.28318/angR);
+  vec2 c0=sceneC(C,r);
+  vec2 cdx=sceneC(C+vec2(1.,0.),r)-c0;
+  vec2 cdy=sceneC(C+vec2(0.,1.),r)-c0;
+  cdx.y-=6.28318*floor(cdx.y/6.28318+.5);
+  cdy.y-=6.28318*floor(cdy.y/6.28318+.5);
+  vec2 fw=abs(cdx)+abs(cdy);
+  C=c0;
+  vec2 P=vec2(2.,1.)*uv0-(r/r.x)*vec2(0.,1.);
+  vec4 O=vec4(uBgColor*90.*uBgGlow/(1e3*dot(P,P)+6.),0.);
+  float mGlow=0.;
+  if(uMouseEnabled>.5){
+    vec2 mN=(iMouse+iMouse-r)/r.x;
+    float md=length(uv0-mN);
+    mGlow=exp(-md*md/max(uMouseRadius*uMouseRadius,1e-4))*uMouseStrength;
+    O.rgb+=uMouseColor*mGlow*.25;
+  }
+  float zr=5e-4*uStreakWidth;
+  vec2 rr=vec2(max(length(fw),1e-5));
+  float tail=19./max(uStreakLength,.05);
+  for(int m=0;m<16;m++){
+    if(m>=uStreakCount)break;
+    float jf=float(m)+1.;
+    float ic=fract(sin(dot(vec2(jf,floor(C.x/Y.x+.5)),vec2(7.,11.))*73.));
+    vec2 Pp=C-(T+T*ic)*vec2(0.,1.);
+    Pp-=floor(Pp/Y+.5)*Y;
+    float h=fract(8663.*ic);
+    vec3 col=palette(h);
+    float wt=mix(1.5,1.+sin(T+7.*h+4.),uTwinkle)*(1.+mGlow*2.);
+    vec2 inner=vec2(length(max(Pp,vec2(-1.,0.))),length(Pp)-zr)-zr;
+    vec2 sm=vec2(1.)-smoothstep(-rr,rr,inner);
+    O.rgb+=dot(sm,vec2(exp(tail*Pp.y),3.))*col*wt;
+    C.x+=Y.x/8.;
+  }
+  vec3 colr=sqrt(tanhv(max(O.rgb*uGlow-vec3(.04,.08,.02),0.)));
+  o=vec4(colr,uOpacity);
+}
+void main(){vec4 c;mainImage(c,vUv*iResolution.xy);gl_FragColor=c;}`;
+
+  function mkShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn('LF shader:', gl.getShaderInfoLog(s)); return null; }
+    return s;
+  }
+  const vs = mkShader(gl.VERTEX_SHADER, VS);
+  const fs = mkShader(gl.FRAGMENT_SHADER, FS);
+  if (!vs || !fs) { canvas.remove(); return; }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn('LF link:', gl.getProgramInfoLog(prog)); canvas.remove(); return; }
+  gl.useProgram(prog);
+
+  // Fullscreen triangle: positions then UVs packed in one buffer
+  const geo = new Float32Array([-1,-1, 3,-1, -1,3,  0,0, 2,0, 0,2]);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, geo, gl.STATIC_DRAW);
+  const posL = gl.getAttribLocation(prog, 'position');
+  const uvL  = gl.getAttribLocation(prog, 'uv');
+  gl.enableVertexAttribArray(posL); gl.vertexAttribPointer(posL, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(uvL);  gl.vertexAttribPointer(uvL,  2, gl.FLOAT, false, 0, 24);
+
+  const U = {};
+  ['iResolution','iMouse','iTime',
+   'uColor0','uColor1','uColor2','uColor3','uColor4','uColor5','uColor6','uColor7',
+   'uColorCount','uBgColor','uMouseColor','uSpeed','uStreakCount','uStreakWidth',
+   'uStreakLength','uGlow','uDensity','uTwinkle','uZoom','uBgGlow','uOpacity',
+   'uMouseEnabled','uMouseStrength','uMouseRadius'
+  ].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+
+  function hexRGB(h) {
+    const c = h.replace('#','').padEnd(6,'0');
+    return [parseInt(c.slice(0,2),16)/255, parseInt(c.slice(2,4),16)/255, parseInt(c.slice(4,6),16)/255];
+  }
+
+  const COLS = ['#A6C8FF','#5227FF','#FF9FFC'];
+  const arr = [];
+  for (let i = 0; i < 8; i++) arr.push(hexRGB(COLS[Math.min(i, COLS.length-1)]));
+  arr.forEach((c, i) => gl.uniform3fv(U['uColor'+i], c));
+  gl.uniform1i(U.uColorCount, COLS.length);
+  gl.uniform3fv(U.uBgColor, hexRGB('#020408'));
+  const avg = arr.slice(0, COLS.length).reduce((a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]], [0,0,0]).map(v=>v/COLS.length);
+  gl.uniform3fv(U.uMouseColor, avg);
+  gl.uniform1f(U.uSpeed, 0.5);
+  gl.uniform1i(U.uStreakCount, 2);
+  gl.uniform1f(U.uStreakWidth, 1.0);
+  gl.uniform1f(U.uStreakLength, 1.0);
+  gl.uniform1f(U.uGlow, 1.2);
+  gl.uniform1f(U.uDensity, 0.6);
+  gl.uniform1f(U.uTwinkle, 1.0);
+  gl.uniform1f(U.uZoom, 3.0);
+  gl.uniform1f(U.uBgGlow, 0.4);
+  gl.uniform1f(U.uOpacity, 1.0);
+  gl.uniform1f(U.uMouseEnabled, 1.0);
+  gl.uniform1f(U.uMouseStrength, 0.5);
+  gl.uniform1f(U.uMouseRadius, 1.0);
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  function resize() {
+    const r = hero.getBoundingClientRect();
+    canvas.width  = Math.round(r.width  * dpr);
+    canvas.height = Math.round(r.height * dpr);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.uniform3fv(U.iResolution, [canvas.width, canvas.height, 1]);
+  }
+  resize();
+  new ResizeObserver(resize).observe(hero);
+
+  const mt = [0, 0], mc = [0, 0];
+  window.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width) return;
+    mt[0] = (e.clientX - rect.left) * dpr;
+    mt[1] = (rect.height - (e.clientY - rect.top)) * dpr;
+  });
+
+  let lt = 0;
+  (function loop(t) {
+    requestAnimationFrame(loop);
+    const dt = Math.min((t - lt) / 1000, 0.05); lt = t;
+    const f = 1 - Math.exp(-dt / 0.15);
+    mc[0] += (mt[0] - mc[0]) * f;
+    mc[1] += (mt[1] - mc[1]) * f;
+    gl.uniform1f(U.iTime, t * 0.001);
+    gl.uniform2fv(U.iMouse, mc);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  })(0);
+})();
+
 // ─── RIBBONS (Ribbons port — Canvas2D, replaces OGL/WebGL) ─
 (function initRibbons() {
   const hero = document.getElementById('hsec');
   if (!hero) return;
 
   const canvas = document.createElement('canvas');
-  canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+  canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;';
   hero.insertBefore(canvas, hero.firstChild);
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
