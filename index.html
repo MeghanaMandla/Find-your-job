@@ -564,7 +564,7 @@ textarea.pa::placeholder{color:var(--t3)}
   </ul>
   <button class="nav-icon-btn" id="musicBtn" onclick="toggleMusic()" title="Play ambient music">🎵</button>
   <button class="nav-icon-btn" id="sfxBtn" onclick="toggleSoundFx()" title="Mute sound effects">🔔</button>
-  <span class="thm-wrap"><button class="nav-icon-btn" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button><span class="thm-hint" id="thmHint">✨ Try both themes!</span></span>
+  <span class="thm-wrap"><button class="nav-icon-btn" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button><span class="thm-hint" id="thmHint">☀️ Try White Theme!</span></span>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
 </nav>
 
@@ -2454,13 +2454,18 @@ function toggleTheme() {
     document.body.classList.add('light');
     document.getElementById('thmBtn').textContent='☀️';
   }
-  // Show theme hint to first-time visitors
+  // Dark theme is always the default — ensure it on first visit
+  if(!localStorage.getItem('theme')){
+    document.body.classList.remove('light');
+    document.getElementById('thmBtn').textContent='🌙';
+  }
+  // Show "Try white theme" hint prominently on first visit
   if(!localStorage.getItem('thm-seen')){
     const hint=document.getElementById('thmHint');
     const btn=document.getElementById('thmBtn');
     if(hint&&btn){
-      const show=setTimeout(()=>{ hint.style.display='block'; }, 2800);
-      const hide=setTimeout(()=>{ hint.style.display='none'; }, 14000);
+      const show=setTimeout(()=>{ hint.style.display='block'; }, 1200);
+      const hide=setTimeout(()=>{ hint.style.display='none'; }, 16000);
       btn.addEventListener('click',()=>{
         localStorage.setItem('thm-seen','1');
         hint.style.display='none';
@@ -2685,7 +2690,7 @@ function initDecryptedText(el, {
   encryptedClassName = 'dt-enc',
   revealedClassName  = 'dt-rev',
 } = {}) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // intentionally runs even under prefers-reduced-motion — hero text is key branding
 
   const original = el.textContent;
   const pool = useOriginalCharsOnly
@@ -2788,7 +2793,7 @@ initDecryptedText(document.querySelector('.hsub'), {
 
 // ─── LOGO LOOP TICKER (LogoLoop port) ──────────────────────
 (function initLogoLoop() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // Note: intentionally not gating on prefers-reduced-motion — ticker is core UI
 
   const root  = document.getElementById('featureTicker');
   const track = document.getElementById('ll-track');
@@ -2862,7 +2867,8 @@ initDecryptedText(document.querySelector('.hsub'), {
   canvas.style.cssText = 'width:100%;height:100%;display:block;';
   div.appendChild(canvas);
 
-  const gl = canvas.getContext('webgl', { alpha: true });
+  const gl = canvas.getContext('webgl', { alpha: true }) ||
+             canvas.getContext('experimental-webgl', { alpha: true });
   if (!gl) { div.remove(); return; }
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -2970,16 +2976,19 @@ void main(){
   }
   resize();
   new ResizeObserver(resize).observe(div);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 
-  // Mouse tracking on the hero (events bubble through transparent overlay)
+  // Mouse + touch tracking on the hero
   let mx=0.5,my=0.5,tmx=0.5,tmy=0.5,mi=0,mTgt=0;
-  hero.addEventListener('mousemove',e=>{
+  function rgPointer(cx,cy){
     const r=hero.getBoundingClientRect();
-    tmx=(e.clientX-r.left)/r.width;
-    tmy=1-(e.clientY-r.top)/r.height;
-    mTgt=1;
-  });
+    tmx=(cx-r.left)/r.width; tmy=1-(cy-r.top)/r.height; mTgt=1;
+  }
+  hero.addEventListener('mousemove',e=>rgPointer(e.clientX,e.clientY));
   hero.addEventListener('mouseleave',()=>{mTgt=0;});
+  hero.addEventListener('touchstart',e=>{ rgPointer(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+  hero.addEventListener('touchmove', e=>{ rgPointer(e.touches[0].clientX,e.touches[0].clientY); },{passive:true});
+  hero.addEventListener('touchend',  ()=>{ mTgt=0; },{passive:true});
 
   (function loop(t){
     requestAnimationFrame(loop);
@@ -3010,6 +3019,7 @@ void main(){
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 200));
   resize();
 
   // Props matching user's usage: colors, baseThickness=10, speedMultiplier=0.5, maxAge=500
@@ -3150,13 +3160,24 @@ void main(){
     rafId = sparks.length ? requestAnimationFrame(draw) : null;
   }
 
-  document.addEventListener('click', e => {
+  function fireSpark(cx, cy) {
     const color = neonColor();
     const now = performance.now();
     for (let i = 0; i < SPARK_COUNT; i++) {
-      sparks.push({ x: e.clientX, y: e.clientY, a: (2 * Math.PI * i) / SPARK_COUNT, t0: now, color });
+      sparks.push({ x: cx, y: cy, a: (2 * Math.PI * i) / SPARK_COUNT, t0: now, color });
     }
     if (!rafId) rafId = requestAnimationFrame(draw);
+  }
+  // Fire on click (desktop) AND touchend (mobile) — prevents double-fire on mobile
+  let lastTouch = 0;
+  document.addEventListener('touchend', e => {
+    lastTouch = Date.now();
+    const t = e.changedTouches[0];
+    fireSpark(t.clientX, t.clientY);
+  }, { passive: true });
+  document.addEventListener('click', e => {
+    if (Date.now() - lastTouch < 400) return; // skip ghost click after touchend
+    fireSpark(e.clientX, e.clientY);
   });
 })();
 
@@ -3372,19 +3393,19 @@ function resetAll() {
     const c = ctx;
     ambPlaying = true;
 
-    // Master bus — gentle fade-in over 4s
+    // Master bus — very slow fade-in over 7s to near-inaudible background level
     ambGain = c.createGain();
     ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.7, c.currentTime + 4);
+    ambGain.gain.linearRampToValueAtTime(0.11, c.currentTime + 7); // very soft
     ambGain.connect(c.destination);
 
-    // Single light reverb — one delay line, low-passed (no feedback clutter)
-    const rvD=c.createDelay(2.5), rvG=c.createGain(), rvLpf=c.createBiquadFilter();
-    rvD.delayTime.value=0.9; rvG.gain.value=0.22;
-    rvLpf.type='lowpass'; rvLpf.frequency.value=1800;
+    // Warm reverb — longer tail for "room" feel, heavily low-passed
+    const rvD=c.createDelay(3), rvG=c.createGain(), rvLpf=c.createBiquadFilter();
+    rvD.delayTime.value=1.4; rvG.gain.value=0.38;
+    rvLpf.type='lowpass'; rvLpf.frequency.value=1200;
     ambGain.connect(rvD); rvD.connect(rvG); rvG.connect(rvLpf); rvLpf.connect(c.destination);
 
-    const beat=60/54; // ~1.111s per quarter note (BPM 54)
+    const beat=60/46; // slowed to BPM 46 — more meditative, brain-calming pace
 
     // Gymnopédie No. 1 — Theme A + A' only (confirmed notes)
     const mel=[
@@ -3413,19 +3434,18 @@ function resetAll() {
       [392.00,3],
     ];
 
-    // Piano note: fundamental + one soft octave harmonic only
-    // (more harmonics = more beating/clash — keep it pure)
+    // Piano note: gentle sine with long natural decay — peaceful, non-intrusive
     function noteOn(freq, t, dur){
-      const decay=Math.min(dur*0.85+0.4, dur+1.2);
-      [[1, 0.06],[2, 0.018]].forEach(([h,v])=>{
+      const decay=Math.min(dur*1.1+0.8, dur+2.0); // long natural tail
+      [[1, 0.042],[2, 0.010]].forEach(([h,v])=>{
         const o=c.createOscillator(), g=c.createGain();
         o.type='sine'; o.frequency.value=freq*h;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(v, t+0.006);
-        g.gain.exponentialRampToValueAtTime(v*0.3, t+0.12);
+        g.gain.linearRampToValueAtTime(v, t+0.010); // softer attack
+        g.gain.exponentialRampToValueAtTime(v*0.22, t+0.18);
         g.gain.exponentialRampToValueAtTime(0.0001, t+decay);
         o.connect(g); g.connect(ambGain);
-        o.start(t); o.stop(t+decay+0.05);
+        o.start(t); o.stop(t+decay+0.08);
       });
     }
 
