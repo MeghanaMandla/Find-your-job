@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Resume AI — Free ATS Resume Analyzer & Job Matcher</title>
-<meta name="description" content="Upload your resume and get an instant ATS score, matched job listings, skill gap analysis, cover letter generator, and interview prep — powered by AI. 100% free."/>
-<meta name="keywords" content="resume analyzer, ATS score, job matcher, resume AI, free resume checker, career intelligence, job search, resume feedback"/>
+<title>Find Your Job — AI Resume Analyzer & Real Job Finder</title>
+<meta name="description" content="Upload your resume and instantly find real matching jobs. Get ATS score, skill gap analysis, cover letter, interview prep, and salary insights — powered by AI. Free job finder."/>
+<meta name="keywords" content="job finder, find jobs, resume analyzer, ATS score, job matcher, AI job search, free job finder, career intelligence, resume feedback, job search India"/>
 <meta name="robots" content="index, follow"/>
 <link rel="canonical" href="https://meghanamandla.github.io/Find-your-job/"/>
 <meta property="og:title" content="Resume AI — Free ATS Resume Analyzer & Job Matcher"/>
@@ -418,15 +418,19 @@ textarea.pa::placeholder{color:var(--t3)}
   <!-- JOBS -->
   <div class="tp on" id="tp-jobs">
     <div class="card">
-      <h3><span class="ico">💼</span>Matched Jobs — Based on Your Resume<span class="ln"></span></h3>
-      <p style="font-size:13px;color:var(--t2);margin-bottom:14px">All jobs are matched to your actual skills. Click LinkedIn to apply.</p>
+      <h3><span class="ico">💼</span>Real Jobs — Matched to Your Resume<span class="ln"></span></h3>
+      <p style="font-size:13px;color:var(--t2);margin-bottom:14px">Live job listings matched to your skills. Click Apply Now to go directly to the job.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="jsearch" placeholder="Search jobs (python, data analyst, react…)" style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--brd);background:var(--bg2);color:var(--t1);font-size:13px" onkeydown="if(event.key==='Enter')searchJobs()"/>
+        <button class="btn" onclick="searchJobs()" style="padding:10px 18px;font-size:13px">🔍 Search</button>
+      </div>
       <div class="jfilt">
         <button class="fb on" onclick="filtJobs('all',this)">All</button>
         <button class="fb" onclick="filtJobs('remote',this)">🌐 Remote</button>
         <button class="fb" onclick="filtJobs('high',this)">🔥 80%+ Match</button>
         <button class="fb" onclick="filtJobs('saved',this)">❤️ Saved</button>
       </div>
-      <div class="jgrid" id="jgrid"></div>
+      <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
     </div>
   </div>
 
@@ -726,16 +730,7 @@ Return this exact JSON structure with real values based on the resume:
     {"role":"Backend Engineer","score":75,"gap":"Docker"},
     {"role":"Full Stack Dev","score":50,"gap":"React"}
   ],
-  "jobs": [
-    {"title":"Junior Python Developer","company":"Tech Startup","match":88,"location":"Bangalore","salary":"4-6 LPA","tags":["Python","Flask","MySQL"],"type":"Full-time","description":"Build backend services using Python and Flask. Great fit for your Python project experience."},
-    {"title":"Data Analyst","company":"MNC","match":80,"location":"Hyderabad","salary":"5-8 LPA","tags":["Python","SQL","Excel"],"type":"Hybrid","description":"Analyze business data using Python and SQL. Matches your data analysis projects."},
-    {"title":"Software Engineer Trainee","company":"IT Services","match":78,"location":"Chennai","salary":"3.5-5 LPA","tags":["Python","OOP","Git"],"type":"Full-time","description":"Entry-level role for fresh graduates. Your academic projects align with requirements."},
-    {"title":"Backend Developer","company":"Product Company","match":75,"location":"Pune","salary":"5-7 LPA","tags":["Python","APIs","PostgreSQL"],"type":"Remote","description":"Develop REST APIs and backend logic. Your API projects are directly relevant."},
-    {"title":"ML Intern","company":"AI Startup","match":70,"location":"Remote","salary":"2-4 LPA","tags":["Python","ML","Pandas"],"type":"Remote","description":"Work on machine learning models. Your ML coursework is a strong foundation."},
-    {"title":"Associate Software Engineer","company":"Consulting Firm","match":68,"location":"Mumbai","salary":"4-6 LPA","tags":["Python","SQL","Problem Solving"],"type":"Full-time","description":"Solve client problems with code. Your problem solving skills match well."},
-    {"title":"Python Automation Engineer","company":"Mid-size Firm","match":65,"location":"Hyderabad","salary":"4-7 LPA","tags":["Python","Selenium","Testing"],"type":"Full-time","description":"Automate testing workflows. Your scripting background is applicable here."},
-    {"title":"Data Science Intern","company":"Analytics Company","match":60,"location":"Bangalore","salary":"2-3 LPA","tags":["Python","Statistics","Pandas"],"type":"Hybrid","description":"Support data science team with analysis tasks. Good entry point for ML career."}
-  ],
+  "searchKeywords": ["python", "machine learning", "sql", "docker", "data analysis"],
   "feedback": [
     {"type":"success","priority":"low","icon":"✅","title":"Strong Technical Foundation","text":"Your Python skills are clearly demonstrated through multiple projects. This is your strongest selling point for entry-level roles."},
     {"type":"error","priority":"high","icon":"❌","title":"No Quantified Achievements","text":"Add numbers to your bullet points. Instead of 'improved performance', write 'improved performance by 40%'. Recruiters need metrics."},
@@ -763,7 +758,7 @@ Return this exact JSON structure with real values based on the resume:
   ]
 }
 
-Now replace ALL example values above with REAL values extracted from this specific resume. Keep exact same JSON structure and field names. The "rewrite" field is NOT in this response — only the fields above.${jdPart}
+Now replace ALL example values above with REAL values from this specific resume. Keep exact same JSON structure. The "rewrite" and "jobs" fields are NOT in this response. For "searchKeywords", return 3-5 key technical skills from the resume as lowercase strings (e.g. ["python","sql","machine learning"]).${jdPart}
 
 RESUME:
 ${resumeSlice}`;
@@ -790,14 +785,57 @@ Replace example values with REAL content from this resume. For the rewrite field
 RESUME:
 ${resumeSlice}`;
 
-  // Fire both calls in parallel
-  const [r1, r2] = await Promise.all([
+  // Fire AI calls + real job search in parallel
+  const [r1, r2, realJobs] = await Promise.all([
     apiCall(prompt1, 4000),
-    apiCall(prompt2, 2000)
+    apiCall(prompt2, 2000),
+    fetchRealJobs('software developer') // placeholder while AI runs
   ]);
 
-  // Merge results
-  return { ...r1, ...r2 };
+  const merged = { ...r1, ...r2 };
+
+  // Now fetch jobs using actual keywords from AI result
+  const keywords = merged.searchKeywords || [];
+  const finalJobs = keywords.length
+    ? await fetchRealJobs(keywords.join(' '))
+    : realJobs;
+
+  const foundSkills = (merged.keywords || []).filter(k => k.status === 'found').map(k => k.word.toLowerCase());
+  merged.jobs = finalJobs.map(j => ({ ...j, match: calcJobMatch(j, foundSkills) }))
+                         .sort((a, b) => b.match - a.match);
+
+  return merged;
+}
+
+// ─── REAL JOB FETCHER — Remotive API (free, no key) ───────
+async function fetchRealJobs(query) {
+  try {
+    const q = encodeURIComponent(query.slice(0, 100));
+    const resp = await fetch(`https://remotive.com/api/remote-jobs?search=${q}&limit=15`);
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.jobs || []).map(j => ({
+      title: j.title || '',
+      company: j.company_name || '',
+      location: j.candidate_required_location || 'Remote',
+      salary: j.salary || 'Competitive',
+      type: (j.job_type || 'full_time').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      tags: (j.tags || []).slice(0, 5),
+      description: (j.description || '').replace(/<[^>]*>/g, '').trim().slice(0, 220) + '…',
+      applyUrl: j.url || '',
+      match: 70
+    }));
+  } catch(e) {
+    console.error('Job fetch failed:', e);
+    return [];
+  }
+}
+
+function calcJobMatch(job, resumeSkills) {
+  if (!resumeSkills.length) return 70;
+  const jobText = [job.title, ...(job.tags || []), job.description].join(' ').toLowerCase();
+  const matched = resumeSkills.filter(s => jobText.includes(s)).length;
+  return Math.min(98, 48 + Math.round((matched / resumeSkills.length) * 50));
 }
 
 async function apiCall(prompt, maxTokens) {
@@ -1048,7 +1086,7 @@ function renderJobs(jobs) {
         <span>🕐 ${j.type||''}</span>
       </div>
       <div class="jbtns">
-        <button class="japply" onclick="applyJob('${safeTitle}')">Apply on LinkedIn ↗</button>
+        <button class="japply" onclick="applyJob('${encodeURIComponent(j.applyUrl||'')}','${safeTitle}')">Apply Now ↗</button>
         <button class="jsave ${isSaved?'saved':''}" onclick="toggleSave('${safeTitle}',this)" title="${isSaved?'Saved':'Save job'}" style="font-size:18px;padding:8px 14px">${isSaved?'❤️':'🤍'}</button>
       </div>
     </div>`;
@@ -1073,8 +1111,27 @@ function toggleSave(title, btn) {
   b.style.display = savedJobs.size > 0 ? 'inline' : 'none';
 }
 
-function applyJob(title) {
-  window.open('https://www.linkedin.com/jobs/search/?keywords=' + encodeURIComponent(title), '_blank');
+function applyJob(encodedUrl, title) {
+  const url = decodeURIComponent(encodedUrl);
+  if (url && url.startsWith('http')) {
+    window.open(url, '_blank');
+  } else {
+    window.open('https://www.linkedin.com/jobs/search/?keywords=' + encodeURIComponent(title), '_blank');
+  }
+}
+
+async function searchJobs() {
+  const q = document.getElementById('jsearch').value.trim();
+  if (!q) return;
+  document.getElementById('jgrid').innerHTML = '<p style="color:var(--t2);padding:20px">Searching real jobs…</p>';
+  const jobs = await fetchRealJobs(q);
+  if (!jobs.length) {
+    document.getElementById('jgrid').innerHTML = '<p style="color:var(--t2);padding:20px">No jobs found. Try different keywords.</p>';
+    return;
+  }
+  const skills = allJobs.length ? (allJobs[0]?.tags || []).map(s => s.toLowerCase()) : [];
+  allJobs = jobs.map(j => ({ ...j, match: calcJobMatch(j, skills) })).sort((a,b) => b.match - a.match);
+  renderJobs(allJobs);
 }
 
 // ─── COVER LETTER ──────────────────────────────────────────
