@@ -436,12 +436,48 @@ textarea.pa::placeholder{color:var(--t3)}
   <!-- JOBS -->
   <div class="tp on" id="tp-jobs">
     <div class="card">
-      <h3><span class="ico">💼</span>Real Jobs — Matched to Your Resume<span class="ln"></span></h3>
-      <p style="font-size:13px;color:var(--t2);margin-bottom:14px">Live remote &amp; India-eligible job listings matched to your skills. Click Apply Now to go directly to the job.</p>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input id="jsearch" placeholder="Search jobs in India (python developer, data analyst…)" style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--brd);background:var(--bg2);color:var(--t1);font-size:13px" onkeydown="if(event.key==='Enter')searchJobs()"/>
-        <button class="btn" onclick="searchJobs()" style="padding:10px 18px;font-size:13px">🔍 Search</button>
+      <h3><span class="ico">💼</span>Jobs in India — Matched to Your Resume<span class="ln"></span></h3>
+      <p style="font-size:13px;color:var(--t2);margin-bottom:14px">Find jobs across all Indian states. Search on Naukri, LinkedIn, Foundit &amp; more with one click.</p>
+
+      <!-- State + keyword search -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <select id="indiaState" onchange="updatePortalButtons()" style="padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none;min-width:170px;cursor:pointer">
+          <option value="">🇮🇳 All India</option>
+          <option value="Andhra Pradesh">Andhra Pradesh</option>
+          <option value="Assam">Assam</option>
+          <option value="Bihar">Bihar</option>
+          <option value="Chhattisgarh">Chhattisgarh</option>
+          <option value="Delhi">Delhi / NCR</option>
+          <option value="Goa">Goa</option>
+          <option value="Gujarat">Gujarat</option>
+          <option value="Haryana">Haryana</option>
+          <option value="Himachal Pradesh">Himachal Pradesh</option>
+          <option value="Jharkhand">Jharkhand</option>
+          <option value="Karnataka">Karnataka</option>
+          <option value="Kerala">Kerala</option>
+          <option value="Madhya Pradesh">Madhya Pradesh</option>
+          <option value="Maharashtra">Maharashtra</option>
+          <option value="Manipur">Manipur</option>
+          <option value="Meghalaya">Meghalaya</option>
+          <option value="Odisha">Odisha</option>
+          <option value="Punjab">Punjab</option>
+          <option value="Rajasthan">Rajasthan</option>
+          <option value="Tamil Nadu">Tamil Nadu</option>
+          <option value="Telangana">Telangana</option>
+          <option value="Uttar Pradesh">Uttar Pradesh</option>
+          <option value="Uttarakhand">Uttarakhand</option>
+          <option value="West Bengal">West Bengal</option>
+        </select>
+        <input id="jsearch" placeholder="Role or skill (python developer, data analyst…)" style="flex:1;min-width:160px;padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--gl);color:var(--t);font-size:13px;outline:none" onkeydown="if(event.key==='Enter'){searchJobs();updatePortalButtons()}"/>
+        <button class="gh-btn" onclick="searchJobs();updatePortalButtons()">🔍 Search</button>
       </div>
+
+      <!-- India job portal quick-launch buttons -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:10px;color:var(--t2);letter-spacing:1.5px;margin-bottom:8px">SEARCH DIRECTLY ON INDIA JOB PORTALS ↓</div>
+        <div id="portalBtns" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+      </div>
+
       <div class="jfilt">
         <button class="fb on" onclick="filtJobs('all',this)">All</button>
         <button class="fb" onclick="filtJobs('remote',this)">🌐 Remote</button>
@@ -720,6 +756,7 @@ async function startAnalysis() {
     document.getElementById('res').classList.add('on');
     showTab('jobs');
     document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
+    updatePortalButtons();
     checkGrammar(resumeText);
   } catch(e) {
     stopLoader();
@@ -1287,6 +1324,54 @@ async function searchJobs() {
   renderJobs(allJobs);
 }
 
+// ─── INDIA STATE JOB PORTAL BUTTONS ────────────────────────
+const STATE_CITY = {
+  'Andhra Pradesh':'Visakhapatnam','Assam':'Guwahati','Bihar':'Patna',
+  'Chhattisgarh':'Raipur','Delhi':'New Delhi','Goa':'Panaji','Gujarat':'Ahmedabad',
+  'Haryana':'Gurugram','Himachal Pradesh':'Shimla','Jharkhand':'Ranchi',
+  'Karnataka':'Bengaluru','Kerala':'Kochi','Madhya Pradesh':'Bhopal',
+  'Maharashtra':'Mumbai','Manipur':'Imphal','Meghalaya':'Shillong',
+  'Odisha':'Bhubaneswar','Punjab':'Chandigarh','Rajasthan':'Jaipur',
+  'Tamil Nadu':'Chennai','Telangana':'Hyderabad','Uttar Pradesh':'Noida',
+  'Uttarakhand':'Dehradun','West Bengal':'Kolkata'
+};
+
+function updatePortalButtons() {
+  const state = document.getElementById('indiaState').value;
+  const city  = STATE_CITY[state] || state || 'India';
+  const loc   = state ? city + ', India' : 'India';
+  const kw    = document.getElementById('jsearch').value.trim() ||
+                (allJobs.length ? (allJobs[0]?.tags||[]).slice(0,2).join(' ') : 'software developer');
+  const q  = encodeURIComponent(kw);
+  const l  = encodeURIComponent(loc);
+  const ls = encodeURIComponent(state || 'India');
+  const lc = encodeURIComponent(city);
+  const ns = (state || 'india').toLowerCase().replace(/\s+/g,'-');
+
+  const portals = [
+    { name:'Naukri',   ico:'🟠', color:'#ff6600',
+      url:`https://www.naukri.com/${kw.toLowerCase().replace(/\s+/g,'-')}-jobs-in-${ns}` },
+    { name:'LinkedIn', ico:'🔵', color:'#0077b5',
+      url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}` },
+    { name:'Indeed',   ico:'🔷', color:'#2164f3',
+      url:`https://in.indeed.com/jobs?q=${q}&l=${l}` },
+    { name:'Foundit',  ico:'🟣', color:'#6600cc',
+      url:`https://www.foundit.in/search-jobs?query=${q}&location=${lc}` },
+    { name:'Apna',     ico:'🟢', color:'#00a651',
+      url:`https://apna.co/jobs?designation=${q}&location=${lc}` },
+    { name:'Internshala', ico:'🔴', color:'#e74c3c',
+      url:`https://internshala.com/jobs/${kw.toLowerCase().replace(/\s+/g,'-')}-jobs-in-${ns}` },
+  ];
+
+  document.getElementById('portalBtns').innerHTML = portals.map(p =>
+    `<a href="${p.url}" target="_blank" rel="noopener"
+      style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;border:1px solid ${p.color}44;color:${p.color};background:${p.color}11;transition:all .2s;white-space:nowrap"
+      onmouseover="this.style.background='${p.color}22'" onmouseout="this.style.background='${p.color}11'">
+      ${p.ico} ${p.name}${state ? ' · '+state : ''}
+    </a>`
+  ).join('');
+}
+
 // ─── COVER LETTER ──────────────────────────────────────────
 async function genCoverLetter() {
   const idx = parseInt(document.getElementById('clsel').value);
@@ -1587,9 +1672,13 @@ function resetAll() {
   document.getElementById('dtit').textContent = 'Drop your resume here';
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
+  updatePortalButtons();
   resumeText=''; allJobs=[]; savedJobs=new Set();
   window.scrollTo({top:0,behavior:'smooth'});
 }
+
+// Init portal buttons on load
+updatePortalButtons();
 </script>
 </body>
 </html>
