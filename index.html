@@ -2712,183 +2712,267 @@ initDecryptedText(document.querySelector('.hsub'), {
   requestAnimationFrame(() => { buildCopies(); requestAnimationFrame(animate); });
 })();
 
-// ─── LIGHTFALL (WebGL falling-streaks hero background) ──────────────────────
-(function initLightfall() {
+// ─── HYPERSPEED (Three.js highway background) ────────────────────────────────
+(function initHyperspeed() {
   if (window.innerWidth < 700 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) return;
   const hero = document.getElementById('hsec');
-  if (!hero) return;
+  if (!hero || !window.THREE) return;
+  const T = THREE;
 
-  const canvas = document.createElement('canvas');
-  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1;';
-  hero.insertBefore(canvas, hero.firstChild);
+  const div = document.createElement('div');
+  div.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1;';
+  hero.insertBefore(div, hero.firstChild);
 
-  const gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'high-performance' });
-  if (!gl) { canvas.remove(); return; }
+  // Options – preset "one" (turbulent distortion, purple/cyan cars)
+  const O = {
+    length:400, roadWidth:10, islandWidth:2, lanesPerRoad:3,
+    fov:90, fovSpeedUp:150, speedUp:2, carLightsFade:0.4,
+    totalSideLightSticks:20, lightPairsPerRoadWay:40,
+    shoulderLinesWidthPercentage:0.05, brokenLinesWidthPercentage:0.1, brokenLinesLengthPercentage:0.5,
+    lightStickWidth:[0.12,0.5], lightStickHeight:[1.3,1.7],
+    movingAwaySpeed:[60,80], movingCloserSpeed:[-120,-160],
+    carLightsLength:[12,80], carLightsRadius:[0.05,0.14],
+    carWidthPercentage:[0.3,0.5], carShiftX:[-0.8,0.8], carFloorSeparation:[0,5],
+    colors:{
+      roadColor:0x080808, islandColor:0x0a0a0a, background:0x000000,
+      shoulderLines:0x131318, brokenLines:0x131318,
+      leftCars:[0xd856bf,0x6750a2,0xc247ac],
+      rightCars:[0x03b3c3,0x0e5ea5,0x324555],
+      sticks:0x03b3c3
+    }
+  };
 
-  const VS = `attribute vec2 position;attribute vec2 uv;varying vec2 vUv;
-void main(){vUv=uv;gl_Position=vec4(position,0.,1.);}`;
-
-  const FS = `precision highp float;
-uniform vec3 iResolution;uniform vec2 iMouse;uniform float iTime;
-uniform vec3 uColor0;uniform vec3 uColor1;uniform vec3 uColor2;uniform vec3 uColor3;
-uniform vec3 uColor4;uniform vec3 uColor5;uniform vec3 uColor6;uniform vec3 uColor7;
-uniform int uColorCount;
-uniform vec3 uBgColor;uniform vec3 uMouseColor;
-uniform float uSpeed;uniform int uStreakCount;uniform float uStreakWidth;
-uniform float uStreakLength;uniform float uGlow;uniform float uDensity;
-uniform float uTwinkle;uniform float uZoom;uniform float uBgGlow;uniform float uOpacity;
-uniform float uMouseEnabled;uniform float uMouseStrength;uniform float uMouseRadius;
-varying vec2 vUv;
-vec3 palette(float h){
-  int cnt=uColorCount;if(cnt<1)cnt=1;
-  int idx=int(floor(clamp(h,0.,.999999)*float(cnt)));
-  if(idx<=0)return uColor0;if(idx==1)return uColor1;if(idx==2)return uColor2;
-  if(idx==3)return uColor3;if(idx==4)return uColor4;if(idx==5)return uColor5;
-  if(idx==6)return uColor6;return uColor7;
-}
-vec3 tanhv(vec3 x){vec3 e=exp(-2.*x);return(1.-e)/(1.+e);}
-vec2 sceneC(vec2 frag,vec2 r){
-  vec2 P=(frag+frag-r)/r.x;float z=0.,d=1e3;vec4 O=vec4(0.);
-  for(int k=0;k<39;k++){
-    if(d<=1e-4)break;
-    O=z*normalize(vec4(P,uZoom,0.))-vec4(0.,4.,1.,0.)/4.5;
-    d=1.-sqrt(length(O*O));z+=d;
-  }
-  return vec2(O.x,atan(O.z,O.y));
-}
-void mainImage(out vec4 o,vec2 C){
-  vec2 r=iResolution.xy;
-  vec2 uv0=(C+C-r)/r.x;
-  float T=.1*iTime*uSpeed+9.;
-  float angR=max(1.,floor(6.28318*max(uDensity,.05)+.5));
-  vec2 Y=vec2(5e-3,6.28318/angR);
-  vec2 c0=sceneC(C,r);
-  vec2 cdx=sceneC(C+vec2(1.,0.),r)-c0;
-  vec2 cdy=sceneC(C+vec2(0.,1.),r)-c0;
-  cdx.y-=6.28318*floor(cdx.y/6.28318+.5);
-  cdy.y-=6.28318*floor(cdy.y/6.28318+.5);
-  vec2 fw=abs(cdx)+abs(cdy);
-  C=c0;
-  vec2 P=vec2(2.,1.)*uv0-(r/r.x)*vec2(0.,1.);
-  vec4 O=vec4(uBgColor*90.*uBgGlow/(1e3*dot(P,P)+6.),0.);
-  float mGlow=0.;
-  if(uMouseEnabled>.5){
-    vec2 mN=(iMouse+iMouse-r)/r.x;
-    float md=length(uv0-mN);
-    mGlow=exp(-md*md/max(uMouseRadius*uMouseRadius,1e-4))*uMouseStrength;
-    O.rgb+=uMouseColor*mGlow*.25;
-  }
-  float zr=5e-4*uStreakWidth;
-  vec2 rr=vec2(max(length(fw),1e-5));
-  float tail=19./max(uStreakLength,.05);
-  for(int m=0;m<16;m++){
-    if(m>=uStreakCount)break;
-    float jf=float(m)+1.;
-    float ic=fract(sin(dot(vec2(jf,floor(C.x/Y.x+.5)),vec2(7.,11.))*73.));
-    vec2 Pp=C-(T+T*ic)*vec2(0.,1.);
-    Pp-=floor(Pp/Y+.5)*Y;
-    float h=fract(8663.*ic);
-    vec3 col=palette(h);
-    float wt=mix(1.5,1.+sin(T+7.*h+4.),uTwinkle)*(1.+mGlow*2.);
-    vec2 inner=vec2(length(max(Pp,vec2(-1.,0.))),length(Pp)-zr)-zr;
-    vec2 sm=vec2(1.)-smoothstep(-rr,rr,inner);
-    O.rgb+=dot(sm,vec2(exp(tail*Pp.y),3.))*col*wt;
-    C.x+=Y.x/8.;
-  }
-  vec3 colr=sqrt(tanhv(max(O.rgb*uGlow-vec3(.04,.08,.02),0.)));
-  o=vec4(colr,uOpacity);
-}
-void main(){vec4 c;mainImage(c,vUv*iResolution.xy);gl_FragColor=c;}`;
-
-  function mkShader(type, src) {
-    const s = gl.createShader(type);
-    gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn('LF shader:', gl.getShaderInfoLog(s)); return null; }
-    return s;
-  }
-  const vs = mkShader(gl.VERTEX_SHADER, VS);
-  const fs = mkShader(gl.FRAGMENT_SHADER, FS);
-  if (!vs || !fs) { canvas.remove(); return; }
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.warn('LF link:', gl.getProgramInfoLog(prog)); canvas.remove(); return; }
-  gl.useProgram(prog);
-
-  // Fullscreen triangle: positions then UVs packed in one buffer
-  const geo = new Float32Array([-1,-1, 3,-1, -1,3,  0,0, 2,0, 0,2]);
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, geo, gl.STATIC_DRAW);
-  const posL = gl.getAttribLocation(prog, 'position');
-  const uvL  = gl.getAttribLocation(prog, 'uv');
-  gl.enableVertexAttribArray(posL); gl.vertexAttribPointer(posL, 2, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(uvL);  gl.vertexAttribPointer(uvL,  2, gl.FLOAT, false, 0, 24);
-
-  const U = {};
-  ['iResolution','iMouse','iTime',
-   'uColor0','uColor1','uColor2','uColor3','uColor4','uColor5','uColor6','uColor7',
-   'uColorCount','uBgColor','uMouseColor','uSpeed','uStreakCount','uStreakWidth',
-   'uStreakLength','uGlow','uDensity','uTwinkle','uZoom','uBgGlow','uOpacity',
-   'uMouseEnabled','uMouseStrength','uMouseRadius'
-  ].forEach(n => U[n] = gl.getUniformLocation(prog, n));
-
-  function hexRGB(h) {
-    const c = h.replace('#','').padEnd(6,'0');
-    return [parseInt(c.slice(0,2),16)/255, parseInt(c.slice(2,4),16)/255, parseInt(c.slice(4,6),16)/255];
+  // Turbulent distortion
+  const uFreqV = { value: new T.Vector4(4,8,8,1) };
+  const uAmpV  = { value: new T.Vector4(25,5,10,10) };
+  const distU  = { uFreq: uFreqV, uAmp: uAmpV };
+  const distGLSL = `
+    uniform vec4 uFreq;uniform vec4 uAmp;
+    float nsin(float v){return sin(v)*.5+.5;}
+    #define PI 3.14159265358979
+    float dX(float p){return cos(PI*p*uFreq.r+uTime)*uAmp.r+pow(cos(PI*p*uFreq.g+uTime*(uFreq.g/uFreq.r)),2.)*uAmp.g;}
+    float dY(float p){return -nsin(PI*p*uFreq.b+uTime)*uAmp.b-pow(nsin(PI*p*uFreq.a+uTime/(uFreq.b/uFreq.a)),5.)*uAmp.a;}
+    vec3 getDistortion(float p){return vec3(dX(p)-dX(0.0125),dY(p)-dY(0.0125),0.);}
+  `;
+  function distJS(progress, time) {
+    const f = uFreqV.value, a = uAmpV.value;
+    const ns = v => Math.sin(v)*.5+.5;
+    const gX = p => Math.cos(Math.PI*p*f.x+time)*a.x + Math.pow(Math.cos(Math.PI*p*f.y+time*(f.y/f.x)),2)*a.y;
+    const gY = p => -ns(Math.PI*p*f.z+time)*a.z - Math.pow(ns(Math.PI*p*f.w+time/(f.z/f.w)),5)*a.w;
+    return new T.Vector3(gX(progress)-gX(0.0125), gY(progress)-gY(0.0125), 0)
+      .multiply(new T.Vector3(-2,-5,0)).add(new T.Vector3(0,0,-10));
   }
 
-  const COLS = ['#A6C8FF','#5227FF','#FF9FFC'];
-  const arr = [];
-  for (let i = 0; i < 8; i++) arr.push(hexRGB(COLS[Math.min(i, COLS.length-1)]));
-  arr.forEach((c, i) => gl.uniform3fv(U['uColor'+i], c));
-  gl.uniform1i(U.uColorCount, COLS.length);
-  gl.uniform3fv(U.uBgColor, hexRGB('#020408'));
-  const avg = arr.slice(0, COLS.length).reduce((a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]], [0,0,0]).map(v=>v/COLS.length);
-  gl.uniform3fv(U.uMouseColor, avg);
-  gl.uniform1f(U.uSpeed, 0.5);
-  gl.uniform1i(U.uStreakCount, 2);
-  gl.uniform1f(U.uStreakWidth, 1.0);
-  gl.uniform1f(U.uStreakLength, 1.0);
-  gl.uniform1f(U.uGlow, 1.2);
-  gl.uniform1f(U.uDensity, 0.6);
-  gl.uniform1f(U.uTwinkle, 1.0);
-  gl.uniform1f(U.uZoom, 3.0);
-  gl.uniform1f(U.uBgGlow, 0.4);
-  gl.uniform1f(U.uOpacity, 1.0);
-  gl.uniform1f(U.uMouseEnabled, 0.0);
-  gl.uniform1f(U.uMouseStrength, 0.0);
-  gl.uniform1f(U.uMouseRadius, 1.0);
+  // Renderer + scene
+  const renderer = new T.WebGLRenderer({ antialias:false, alpha:false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;';
+  div.appendChild(renderer.domElement);
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  function resize() {
-    const r = hero.getBoundingClientRect();
-    canvas.width  = Math.round(r.width  * dpr);
-    canvas.height = Math.round(r.height * dpr);
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.uniform3fv(U.iResolution, [canvas.width, canvas.height, 1]);
+  const scene  = new T.Scene();
+  scene.background = new T.Color(O.colors.background);
+  const fog  = new T.Fog(O.colors.background, O.length*0.2, O.length*500);
+  scene.fog  = fog;
+  const fogU = { fogColor:{value:fog.color}, fogNear:{value:fog.near}, fogFar:{value:fog.far} };
+
+  const camera = new T.PerspectiveCamera(O.fov, 1, 0.1, 10000);
+  camera.position.set(0, 8, -5);
+  const clock = new T.Clock();
+
+  const rnd  = b => Array.isArray(b) ? Math.random()*(b[1]-b[0])+b[0] : Math.random()*b;
+  const pick = a => Array.isArray(a) ? a[Math.floor(Math.random()*a.length)] : a;
+  function lerp(c,t,s=0.1,l=0.001){ const ch=(t-c)*s; return Math.abs(ch)<l?t-c:ch; }
+
+  // ── Car lights ──
+  const clVS = `#define USE_FOG;\n`+THREE.ShaderChunk['fog_pars_vertex']+`
+    attribute vec3 aOffset,aMetrics,aColor;
+    uniform float uTravelLength,uTime;varying vec2 vUv;varying vec3 vColor;
+    #include <getDistortion_vertex>
+    void main(){
+      vec3 tr=position.xyz;
+      float radius=aMetrics.r,myLen=aMetrics.g,speed=aMetrics.b;
+      tr.xy*=radius;tr.z*=myLen;
+      tr.z+=myLen-mod(uTime*speed+aOffset.z,uTravelLength);
+      tr.xy+=aOffset.xy;
+      tr.xyz+=getDistortion(abs(tr.z/uTravelLength));
+      vec4 mv=modelViewMatrix*vec4(tr,1.);
+      gl_Position=projectionMatrix*mv;vUv=uv;vColor=aColor;
+      `+THREE.ShaderChunk['fog_vertex']+`
+    }`;
+  const clFS = `#define USE_FOG;\n`+THREE.ShaderChunk['fog_pars_fragment']+`
+    varying vec3 vColor;varying vec2 vUv;uniform vec2 uFade;
+    void main(){
+      float alpha=smoothstep(uFade.x,uFade.y,vUv.x);
+      gl_FragColor=vec4(vColor,alpha);
+      if(gl_FragColor.a<0.0001)discard;
+      `+THREE.ShaderChunk['fog_fragment']+`
+    }`;
+
+  function makeCarLights(colors, speed, fade) {
+    const curve = new T.LineCurve3(new T.Vector3(0,0,0), new T.Vector3(0,0,-1));
+    const base  = new T.TubeGeometry(curve,40,1,8,false);
+    const ig    = new T.InstancedBufferGeometry().copy(base);
+    ig.instanceCount = O.lightPairsPerRoadWay*2;
+    const lw = O.roadWidth/O.lanesPerRoad;
+    const aO=[],aM=[],aC=[];
+    const cols = Array.isArray(colors)?colors.map(c=>new T.Color(c)):new T.Color(colors);
+    for(let i=0;i<O.lightPairsPerRoadWay;i++){
+      const r=rnd(O.carLightsRadius),l=rnd(O.carLightsLength),s=rnd(speed);
+      let lx=(i%O.lanesPerRoad)*lw-O.roadWidth/2+lw/2+rnd(O.carShiftX)*lw;
+      const cw=rnd(O.carWidthPercentage)*lw, oy=rnd(O.carFloorSeparation)+r*1.3, oz=-rnd(O.length);
+      aO.push(lx-cw/2,oy,oz,lx+cw/2,oy,oz);
+      aM.push(r,l,s,r,l,s);
+      const c=pick(cols); aC.push(c.r,c.g,c.b,c.r,c.g,c.b);
+    }
+    ig.setAttribute('aOffset', new T.InstancedBufferAttribute(new Float32Array(aO),3));
+    ig.setAttribute('aMetrics',new T.InstancedBufferAttribute(new Float32Array(aM),3));
+    ig.setAttribute('aColor',  new T.InstancedBufferAttribute(new Float32Array(aC),3));
+    const mat = new T.ShaderMaterial({
+      vertexShader:clVS, fragmentShader:clFS, transparent:true,
+      uniforms:Object.assign({uTime:{value:0},uTravelLength:{value:O.length},uFade:{value:fade}},fogU,distU)
+    });
+    mat.onBeforeCompile = s => { s.vertexShader=s.vertexShader.replace('#include <getDistortion_vertex>',distGLSL); };
+    const mesh = new T.Mesh(ig,mat); mesh.frustumCulled=false; scene.add(mesh); return mesh;
+  }
+
+  // ── Side sticks ──
+  const ssVS = `#define USE_FOG;\n`+THREE.ShaderChunk['fog_pars_vertex']+`
+    attribute float aOffset;attribute vec3 aColor;attribute vec2 aMetrics;
+    uniform float uTravelLength,uTime;varying vec3 vColor;
+    mat4 rotY(float a){return mat4(cos(a),0.,sin(a),0.,0.,1.,0.,0.,-sin(a),0.,cos(a),0.,0.,0.,0.,1.);}
+    #include <getDistortion_vertex>
+    void main(){
+      vec3 tr=position.xyz;float w=aMetrics.x,h=aMetrics.y;
+      tr.xy*=vec2(w,h);
+      float t=mod(uTime*120.+aOffset,uTravelLength);
+      tr=(rotY(3.14159/2.)*vec4(tr,1.)).xyz;
+      tr.z+=-uTravelLength+t;
+      tr.xyz+=getDistortion(abs(tr.z/uTravelLength));
+      tr.y+=h/2.;tr.x+=-w/2.;
+      vec4 mv=modelViewMatrix*vec4(tr,1.);gl_Position=projectionMatrix*mv;vColor=aColor;
+      `+THREE.ShaderChunk['fog_vertex']+`
+    }`;
+  const ssFS = `#define USE_FOG;\n`+THREE.ShaderChunk['fog_pars_fragment']+`
+    varying vec3 vColor;
+    void main(){gl_FragColor=vec4(vColor,1.);`+THREE.ShaderChunk['fog_fragment']+`}`;
+
+  function makeSticks() {
+    const geo = new T.PlaneGeometry(1,1);
+    const ig  = new T.InstancedBufferGeometry().copy(geo);
+    ig.instanceCount = O.totalSideLightSticks;
+    const gap=O.length/(O.totalSideLightSticks-1), aO=[],aC=[],aM=[];
+    const cols=Array.isArray(O.colors.sticks)?O.colors.sticks.map(c=>new T.Color(c)):new T.Color(O.colors.sticks);
+    for(let i=0;i<O.totalSideLightSticks;i++){
+      aO.push((i-1)*gap*2+gap*Math.random());
+      const c=pick(cols); aC.push(c.r,c.g,c.b);
+      aM.push(rnd(O.lightStickWidth),rnd(O.lightStickHeight));
+    }
+    ig.setAttribute('aOffset', new T.InstancedBufferAttribute(new Float32Array(aO),1));
+    ig.setAttribute('aColor',  new T.InstancedBufferAttribute(new Float32Array(aC),3));
+    ig.setAttribute('aMetrics',new T.InstancedBufferAttribute(new Float32Array(aM),2));
+    const mat = new T.ShaderMaterial({
+      vertexShader:ssVS, fragmentShader:ssFS, side:T.DoubleSide,
+      uniforms:Object.assign({uTravelLength:{value:O.length},uTime:{value:0}},fogU,distU)
+    });
+    mat.onBeforeCompile = s => { s.vertexShader=s.vertexShader.replace('#include <getDistortion_vertex>',distGLSL); };
+    const mesh = new T.Mesh(ig,mat); mesh.frustumCulled=false; scene.add(mesh); return mesh;
+  }
+
+  // ── Road planes ──
+  const rVS = `#define USE_FOG;\nuniform float uTime;\n`+THREE.ShaderChunk['fog_pars_vertex']+`
+    uniform float uTravelLength;varying vec2 vUv;
+    #include <getDistortion_vertex>
+    void main(){
+      vec3 tr=position.xyz;
+      vec3 d=getDistortion((tr.y+uTravelLength/2.)/uTravelLength);
+      tr.x+=d.x;tr.z+=d.y;tr.y+=-d.z;
+      vec4 mv=modelViewMatrix*vec4(tr,1.);gl_Position=projectionMatrix*mv;vUv=uv;
+      `+THREE.ShaderChunk['fog_vertex']+`
+    }`;
+  const islandFS = `#define USE_FOG;\nvarying vec2 vUv;uniform vec3 uColor;uniform float uTime;\n`
+    +THREE.ShaderChunk['fog_pars_fragment']
+    +`void main(){gl_FragColor=vec4(uColor,1.);`+THREE.ShaderChunk['fog_fragment']+`}`;
+  const roadFS = `#define USE_FOG;\nvarying vec2 vUv;uniform vec3 uColor,uBrokenLinesColor,uShoulderLinesColor;
+    uniform float uTime,uLanes,uShoulderLinesWidthPercentage,uBrokenLinesLengthPercentage,uBrokenLinesWidthPercentage;\n`
+    +THREE.ShaderChunk['fog_pars_fragment']+`
+    void main(){
+      vec2 uv=vUv;vec3 color=uColor;
+      uv.y=mod(uv.y+uTime*0.05,1.);
+      float lw=1./uLanes,blW=lw*uBrokenLinesWidthPercentage,em=1.-uBrokenLinesLengthPercentage;
+      float bl=step(1.-blW,fract(uv.x*2.))*step(em,fract(uv.y*10.));
+      float sl=step(1.-blW,fract((uv.x-lw*(uLanes-1.))*2.))+step(blW,uv.x);
+      bl=mix(bl,sl,uv.x);
+      color=mix(color,uShoulderLinesColor,sl*(1.-bl));
+      color=mix(color,uBrokenLinesColor,bl*(1.-sl));
+      gl_FragColor=vec4(color,1.);`+THREE.ShaderChunk['fog_fragment']+`
+    }`;
+
+  function makeRoad(side, isRoad) {
+    const geo = new T.PlaneGeometry(isRoad?O.roadWidth:O.islandWidth, O.length, 20, 100);
+    const uTime = {value:0};
+    let uni = { uTravelLength:{value:O.length}, uColor:{value:new T.Color(isRoad?O.colors.roadColor:O.colors.islandColor)}, uTime };
+    if(isRoad) Object.assign(uni,{
+      uLanes:{value:O.lanesPerRoad},
+      uBrokenLinesColor:{value:new T.Color(O.colors.brokenLines)},
+      uShoulderLinesColor:{value:new T.Color(O.colors.shoulderLines)},
+      uShoulderLinesWidthPercentage:{value:O.shoulderLinesWidthPercentage},
+      uBrokenLinesLengthPercentage:{value:O.brokenLinesLengthPercentage},
+      uBrokenLinesWidthPercentage:{value:O.brokenLinesWidthPercentage}
+    });
+    const mat = new T.ShaderMaterial({
+      vertexShader:rVS, fragmentShader:isRoad?roadFS:islandFS, side:T.DoubleSide,
+      uniforms:Object.assign(uni,fogU,distU)
+    });
+    mat.onBeforeCompile = s => { s.vertexShader=s.vertexShader.replace('#include <getDistortion_vertex>',distGLSL); };
+    const mesh = new T.Mesh(geo,mat);
+    mesh.rotation.x=-Math.PI/2;
+    mesh.position.z=-O.length/2;
+    mesh.position.x=(O.islandWidth/2+O.roadWidth/2)*side;
+    scene.add(mesh); return {mesh,uTime};
+  }
+
+  // Build
+  const lRoad=makeRoad(-1,true), rRoad=makeRoad(1,true), isle=makeRoad(0,false);
+  const lLights=makeCarLights(O.colors.leftCars, O.movingAwaySpeed, new T.Vector2(0,1-O.carLightsFade));
+  lLights.position.setX(-O.roadWidth/2-O.islandWidth/2);
+  const rLights=makeCarLights(O.colors.rightCars, O.movingCloserSpeed, new T.Vector2(1,O.carLightsFade));
+  rLights.position.setX(O.roadWidth/2+O.islandWidth/2);
+  const sticks=makeSticks();
+  sticks.position.setX(-(O.roadWidth+O.islandWidth/2));
+
+  function resize(){
+    const w=div.clientWidth, h=div.clientHeight;
+    if(!w||!h) return;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h; camera.updateProjectionMatrix();
   }
   resize();
-  new ResizeObserver(resize).observe(hero);
+  new ResizeObserver(resize).observe(div);
 
-  const mt = [0, 0], mc = [0, 0];
-  window.addEventListener('mousemove', e => {
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width) return;
-    mt[0] = (e.clientX - rect.left) * dpr;
-    mt[1] = (rect.height - (e.clientY - rect.top)) * dpr;
-  });
+  // Hold mouse/touch anywhere to speed up
+  let fovTarget=O.fov, speedUpTarget=0, speedUp=0, timeOffset=0;
+  document.addEventListener('mousedown',()=>{fovTarget=O.fovSpeedUp;speedUpTarget=O.speedUp;});
+  document.addEventListener('mouseup',  ()=>{fovTarget=O.fov;speedUpTarget=0;});
+  document.addEventListener('touchstart',()=>{fovTarget=O.fovSpeedUp;speedUpTarget=O.speedUp;},{passive:true});
+  document.addEventListener('touchend',  ()=>{fovTarget=O.fov;speedUpTarget=0;},{passive:true});
 
-  let lt = 0;
-  (function loop(t) {
-    requestAnimationFrame(loop);
-    const dt = Math.min((t - lt) / 1000, 0.05); lt = t;
-    const f = 1 - Math.exp(-dt / 0.15);
-    mc[0] += (mt[0] - mc[0]) * f;
-    mc[1] += (mt[1] - mc[1]) * f;
-    gl.uniform1f(U.iTime, t * 0.001);
-    gl.uniform2fv(U.iMouse, mc);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-  })(0);
+  (function tick(){
+    requestAnimationFrame(tick);
+    const delta=clock.getDelta();
+    const lp=Math.exp(-(-60*Math.log2(1-0.1))*delta);
+    speedUp+=lerp(speedUp,speedUpTarget,lp,0.00001);
+    timeOffset+=speedUp*delta;
+    const time=clock.elapsedTime+timeOffset;
+    lRoad.uTime.value=rRoad.uTime.value=isle.uTime.value=time;
+    lLights.material.uniforms.uTime.value=time;
+    rLights.material.uniforms.uTime.value=time;
+    sticks.material.uniforms.uTime.value=time;
+    camera.fov+=lerp(camera.fov,fovTarget,lp)*delta*6;
+    const d=distJS(0.025,time);
+    camera.lookAt(new T.Vector3(camera.position.x+d.x,camera.position.y+d.y,camera.position.z+d.z));
+    camera.updateProjectionMatrix();
+    renderer.render(scene,camera);
+  })();
 })();
 
 // ─── RIBBONS (Ribbons port — Canvas2D, replaces OGL/WebGL) ─
