@@ -2435,6 +2435,68 @@ initDecryptedText(document.querySelector('.hsub'), {
   requestAnimationFrame(() => { buildCopies(); requestAnimationFrame(animate); });
 })();
 
+// ─── CLICK SPARK (ClickSpark port) ─────────────────────────
+(function initClickSpark() {
+  const SPARK_SIZE   = 10;
+  const SPARK_RADIUS = 22;
+  const SPARK_COUNT  = 8;
+  const DURATION     = 400; // ms
+  // Ease-out: same as component default
+  const ease = t => t * (2 - t);
+
+  // Full-page overlay canvas — pointer-events:none so it never blocks clicks
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:99999;';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let sparks = [];
+  let rafId  = null;
+
+  // Pick neon color from site CSS vars at click time (adapts to light/dark)
+  const cs = getComputedStyle(document.documentElement);
+  function neonColor() {
+    const pool = ['--nc','--np','--npi','--ng','--na'].map(v => cs.getPropertyValue(v).trim()).filter(Boolean);
+    return pool[Math.floor(Math.random() * pool.length)] || '#00ffff';
+  }
+
+  function draw(ts) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    sparks = sparks.filter(s => {
+      const elapsed = ts - s.t0;
+      if (elapsed >= DURATION) return false;
+      const p = ease(elapsed / DURATION);
+      const dist = p * SPARK_RADIUS;
+      const len  = SPARK_SIZE * (1 - p);
+      const x1 = s.x + dist * Math.cos(s.a);
+      const y1 = s.y + dist * Math.sin(s.a);
+      const x2 = s.x + (dist + len) * Math.cos(s.a);
+      const y2 = s.y + (dist + len) * Math.sin(s.a);
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      return true;
+    });
+    rafId = sparks.length ? requestAnimationFrame(draw) : null;
+  }
+
+  document.addEventListener('click', e => {
+    const color = neonColor();
+    const now = performance.now();
+    for (let i = 0; i < SPARK_COUNT; i++) {
+      sparks.push({ x: e.clientX, y: e.clientY, a: (2 * Math.PI * i) / SPARK_COUNT, t0: now, color });
+    }
+    if (!rafId) rafId = requestAnimationFrame(draw);
+  });
+})();
+
 function resetAll() {
   document.getElementById('res').classList.remove('on');
   document.getElementById('pit').value = '';
