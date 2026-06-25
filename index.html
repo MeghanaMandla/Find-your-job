@@ -201,10 +201,38 @@ textarea.pa::placeholder{color:var(--t3)}
 .sl2{font-size:11px;color:var(--t2);letter-spacing:1px}
 
 /* TABS */
-.tabs{display:flex;gap:3px;background:var(--gl);border:1px solid var(--bd);border-radius:14px;padding:5px;margin-bottom:20px;backdrop-filter:blur(12px);flex-wrap:wrap}
-.tbtn{flex:1;min-width:70px;padding:9px 6px;border:none;background:transparent;color:var(--t2);font-size:11px;font-weight:500;letter-spacing:.4px;border-radius:10px;cursor:pointer;transition:all .3s;white-space:nowrap}
-.tbtn.on{background:linear-gradient(135deg,rgba(0,255,255,.15),rgba(191,0,255,.15));color:var(--nc);border:1px solid rgba(0,255,255,.2)}
+.tabs{display:flex;gap:3px;background:var(--gl);border:1px solid var(--bd);border-radius:14px;padding:5px;margin-bottom:0;backdrop-filter:blur(12px);flex-wrap:wrap}
+.tbtn{flex:1;min-width:70px;padding:9px 6px;border:none;background:transparent;color:var(--t2);font-size:11px;font-weight:500;letter-spacing:.4px;border-radius:10px;cursor:pointer;transition:color .3s;white-space:nowrap}
+.tbtn.on{color:var(--bg);background:none;border:none}
 .tbtn:hover:not(.on){color:var(--t);background:rgba(255,255,255,.04)}
+/* GooeyNav */
+:root{--gn-c1:#00ffff;--gn-c2:#a855f7;--gn-c3:#ec4899;--gn-c4:#00ff94}
+.gn-wrap{position:relative;margin-bottom:20px}
+.gn-effect{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;display:grid;place-items:center}
+.gn-text{z-index:3;color:white;font-size:11px;font-weight:500;letter-spacing:.4px;transition:color .3s ease;white-space:nowrap;overflow:hidden}
+.gn-text.active{color:var(--bg)}
+.gn-filter{filter:blur(7px) contrast(100) blur(0);mix-blend-mode:lighten;z-index:1}
+.gn-filter::before{content:'';position:absolute;inset:-75px;z-index:-2;background:black}
+.gn-filter::after{content:'';position:absolute;inset:0;background:white;transform:scale(0);opacity:0;z-index:-1;border-radius:100vw}
+.gn-filter.active::after{animation:gn-pill .3s ease both}
+@keyframes gn-pill{to{transform:scale(1);opacity:1}}
+.gn-particle,.gn-point{display:block;opacity:0;width:20px;height:20px;border-radius:100%;transform-origin:center}
+.gn-particle{--time:5s;position:absolute;top:calc(50% - 8px);left:calc(50% - 8px);animation:gn-p calc(var(--time)) ease 1 -350ms}
+.gn-point{background:var(--color);opacity:1;animation:gn-pt calc(var(--time)) ease 1 -350ms}
+@keyframes gn-p{
+  0%{transform:rotate(0deg) translate(var(--start-x),var(--start-y));opacity:1;animation-timing-function:cubic-bezier(.55,0,1,.45)}
+  70%{transform:rotate(calc(var(--rotate)*.5)) translate(calc(var(--end-x)*1.2),calc(var(--end-y)*1.2));opacity:1;animation-timing-function:ease}
+  85%{transform:rotate(calc(var(--rotate)*.66)) translate(var(--end-x),var(--end-y));opacity:1}
+  100%{transform:rotate(calc(var(--rotate)*1.2)) translate(calc(var(--end-x)*.5),calc(var(--end-y)*.5));opacity:1}
+}
+@keyframes gn-pt{
+  0%{transform:scale(0);opacity:0;animation-timing-function:cubic-bezier(.55,0,1,.45)}
+  25%{transform:scale(calc(var(--scale)*.25))}
+  38%{opacity:1}
+  65%{transform:scale(var(--scale));opacity:1;animation-timing-function:ease}
+  85%{transform:scale(var(--scale));opacity:1}
+  100%{transform:scale(0);opacity:0}
+}
 .tp{display:none}
 .tp.on{display:block}
 
@@ -382,7 +410,8 @@ textarea.pa::placeholder{color:var(--t3)}
   .nbtn{display:none}
   .sh{grid-template-columns:1fr;text-align:center}.srw{margin:0 auto}
   .srow{grid-template-columns:repeat(3,1fr)}
-  .tabs{gap:2px}.tbtn{font-size:10px;padding:7px 3px}
+  .tabs{gap:2px;margin-bottom:0}.tbtn{font-size:10px;padding:7px 3px}
+  .gn-effect{display:none}
   .jgrid{grid-template-columns:1fr}
   .cgrid{grid-template-columns:1fr 1fr}
 }
@@ -506,18 +535,22 @@ textarea.pa::placeholder{color:var(--t3)}
     <div class="sbox"><div class="sn2" id="ss5" style="color:var(--na)">—</div><div class="sl2">TIPS</div></div>
   </div>
 
-  <!-- TABS -->
-  <div class="tabs">
-    <button class="tbtn" onclick="showTab('skills')">💡 Skills</button>
-    <button class="tbtn on" onclick="showTab('jobs')">💼 Jobs <span class="svc" id="svbadge" style="display:none">0</span></button>
-    <button class="tbtn" onclick="showTab('feedback')">🔍 Feedback</button>
-    <button class="tbtn" onclick="showTab('rewrite')">✏️ Rewrite</button>
-    <button class="tbtn" onclick="showTab('cover')">📝 Cover</button>
-    <button class="tbtn" onclick="showTab('interview')">🎤 Interview</button>
-    <button class="tbtn" onclick="showTab('salary')">💰 Salary</button>
-    <button class="tbtn" onclick="showTab('roadmap')">🗺️ Roadmap</button>
-    <button class="tbtn" onclick="showTab('github')">🐙 GitHub</button>
-    <button class="tbtn" onclick="showTab('grammar')">📝 Grammar</button>
+  <!-- TABS (GooeyNav) -->
+  <div id="gnTabsWrap" class="gn-wrap">
+    <div class="tabs">
+      <button class="tbtn" onclick="showTab('skills')">💡 Skills</button>
+      <button class="tbtn on" onclick="showTab('jobs')">💼 Jobs <span class="svc" id="svbadge" style="display:none">0</span></button>
+      <button class="tbtn" onclick="showTab('feedback')">🔍 Feedback</button>
+      <button class="tbtn" onclick="showTab('rewrite')">✏️ Rewrite</button>
+      <button class="tbtn" onclick="showTab('cover')">📝 Cover</button>
+      <button class="tbtn" onclick="showTab('interview')">🎤 Interview</button>
+      <button class="tbtn" onclick="showTab('salary')">💰 Salary</button>
+      <button class="tbtn" onclick="showTab('roadmap')">🗺️ Roadmap</button>
+      <button class="tbtn" onclick="showTab('github')">🐙 GitHub</button>
+      <button class="tbtn" onclick="showTab('grammar')">📝 Grammar</button>
+    </div>
+    <span id="gnFilter" class="gn-effect gn-filter"></span>
+    <span id="gnText"   class="gn-effect gn-text"></span>
   </div>
 
   <!-- SKILLS -->
@@ -2030,6 +2063,108 @@ function renderGrammar(matches, text) {
 }
 
 // ─── HELPERS ───────────────────────────────────────────────
+// ─── GOOEY NAV TABS (GooeyNav port) ────────────────────────
+(function initGooeyNav() {
+  const wrap   = document.getElementById('gnTabsWrap');
+  const filter = document.getElementById('gnFilter');
+  const text   = document.getElementById('gnText');
+  if (!wrap || !filter || !text) return;
+
+  // Same defaults as component props
+  const PCOUNT   = 15;
+  const DISTS    = [90, 10];
+  const R        = 100;
+  const ATIME    = 600;
+  const TVAR     = 300;
+  const COLORS   = [1, 2, 3, 1, 2, 3, 1, 4];
+
+  const noise = (n = 1) => n / 2 - Math.random() * n;
+
+  function getXY(dist, idx, total) {
+    const a = ((360 + noise(8)) / total) * idx * (Math.PI / 180);
+    return [dist * Math.cos(a), dist * Math.sin(a)];
+  }
+
+  function mkParticle(i, t, d, r) {
+    const rot = noise(r / 10);
+    return {
+      start: getXY(d[0], PCOUNT - i, PCOUNT),
+      end:   getXY(d[1] + noise(7), PCOUNT - i, PCOUNT),
+      time:  t,
+      scale: 1 + noise(0.2),
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      rotate: rot > 0 ? (rot + r / 20) * 10 : (rot - r / 20) * 10,
+    };
+  }
+
+  function burst(el) {
+    const bubbleTime = ATIME * 2 + TVAR;
+    el.style.setProperty('--time', `${bubbleTime}ms`);
+
+    for (let i = 0; i < PCOUNT; i++) {
+      const t = ATIME * 2 + noise(TVAR * 2);
+      const p = mkParticle(i, t, DISTS, R);
+      el.classList.remove('active');
+
+      setTimeout(() => {
+        const particle = document.createElement('span');
+        const point    = document.createElement('span');
+        particle.className = 'gn-particle';
+        point.className    = 'gn-point';
+        particle.style.setProperty('--start-x', `${p.start[0]}px`);
+        particle.style.setProperty('--start-y', `${p.start[1]}px`);
+        particle.style.setProperty('--end-x',   `${p.end[0]}px`);
+        particle.style.setProperty('--end-y',   `${p.end[1]}px`);
+        particle.style.setProperty('--time',   `${p.time}ms`);
+        particle.style.setProperty('--scale',  `${p.scale}`);
+        particle.style.setProperty('--color',  `var(--gn-c${p.color})`);
+        particle.style.setProperty('--rotate', `${p.rotate}deg`);
+        particle.appendChild(point);
+        el.appendChild(particle);
+        requestAnimationFrame(() => el.classList.add('active'));
+        setTimeout(() => { try { el.removeChild(particle); } catch {} }, t);
+      }, 30);
+    }
+  }
+
+  function reposition(btn) {
+    const wr = wrap.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
+    const s  = { left:`${br.left-wr.left}px`, top:`${br.top-wr.top}px`, width:`${br.width}px`, height:`${br.height}px` };
+    Object.assign(filter.style, s);
+    Object.assign(text.style,   s);
+    // Label text without badge
+    const clone = btn.cloneNode(true);
+    clone.querySelector('.svc')?.remove();
+    text.textContent = clone.textContent.trim();
+  }
+
+  // Called by showTab() on every tab switch
+  window._gooeySwitch = function(btn) {
+    filter.querySelectorAll('.gn-particle').forEach(p => p.remove());
+    text.classList.remove('active');
+    void text.offsetWidth; // force reflow to restart animation
+    text.classList.add('active');
+    reposition(btn);
+    burst(filter);
+  };
+
+  // Position on results visible (getBoundingClientRect=0 while #res is hidden)
+  new MutationObserver(() => {
+    if (document.getElementById('res')?.classList.contains('on')) {
+      const active = document.querySelector('.tbtn.on');
+      if (active) { reposition(active); text.classList.add('active'); }
+    }
+  }).observe(document.getElementById('res') || document.body,
+    { attributes: true, attributeFilter: ['class'] });
+
+  // Reposition on resize
+  new ResizeObserver(() => {
+    const active = document.querySelector('.tbtn.on');
+    if (active) reposition(active);
+  }).observe(wrap);
+})();
+
 // ─── PILL NAV (PillNav port) ───────────────────────────────
 function _pillNavLayout() {
   document.querySelectorAll('.pn-pill').forEach(pill => {
@@ -2064,8 +2199,10 @@ function showTab(id) {
   const ids = ['skills','jobs','feedback','rewrite','cover','interview','salary','roadmap','github','grammar'];
   document.querySelectorAll('.tbtn').forEach((b,i) => b.classList.toggle('on', ids[i]===id));
   document.querySelectorAll('.tp').forEach(p => p.classList.toggle('on', p.id==='tp-'+id));
-  // Sync active pill for nav items that map to tabs
   _setActivePill({'jobs':'jobs','interview':'interview'}[id] ?? null);
+  // GooeyNav bubble burst on the new active tab
+  const activeBtn = document.querySelector('.tbtn.on');
+  if (activeBtn && window._gooeySwitch) window._gooeySwitch(activeBtn);
 }
 
 function toggleIQ(el) {
