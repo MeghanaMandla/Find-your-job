@@ -938,10 +938,23 @@ async function apiCall(prompt, maxTokens) {
       }
       if (success) break;
     }
-    // Groq fallback if Gemini exhausted and key is configured
+    // 2nd tier — NVIDIA Nemotron Ultra 550B (strongest structured JSON + long-form)
+    if (!raw && SITE_API_KEY_NVIDIA) {
+      try {
+        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying Nemotron Ultra fallback...');
+        const nr = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA },
+          body: JSON.stringify({ model: 'nvidia/nemotron-ultra-253b-v1', max_tokens: maxTokens, temperature: 0.4, top_p: 0.95, messages: [{ role: 'user', content: prompt }] })
+        });
+        if (nr.ok) { const nd = await nr.json(); raw = (nd.choices?.[0]?.message?.content || '').trim(); }
+      } catch(e) { console.warn('Nemotron fallback failed:', e); }
+    }
+
+    // 3rd tier — Groq Llama 3.3 70B (fast)
     if (!raw && SITE_API_KEY_GROQ) {
       try {
-        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying Groq AI fallback...');
+        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying Groq fallback...');
         const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_GROQ },
@@ -951,23 +964,10 @@ async function apiCall(prompt, maxTokens) {
       } catch(e) { console.warn('Groq fallback failed:', e); }
     }
 
-    // NVIDIA NIM fallback (3rd tier — Llama 3.3 70B)
-    if (!raw && SITE_API_KEY_NVIDIA) {
-      try {
-        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying NVIDIA AI fallback...');
-        const nr = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA },
-          body: JSON.stringify({ model: 'meta/llama-3.3-70b-instruct', max_tokens: maxTokens, temperature: 0.4, messages: [{ role: 'user', content: prompt }] })
-        });
-        if (nr.ok) { const nd = await nr.json(); raw = (nd.choices?.[0]?.message?.content || '').trim(); }
-      } catch(e) { console.warn('NVIDIA fallback failed:', e); }
-    }
-
-    // NVIDIA MiniMax-M3 fallback (4th tier)
+    // 4th tier — NVIDIA MiniMax-M3
     if (!raw && SITE_API_KEY_NVIDIA2) {
       try {
-        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying MiniMax AI fallback...');
+        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying MiniMax fallback...');
         const nr2 = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA2 },
@@ -977,7 +977,7 @@ async function apiCall(prompt, maxTokens) {
       } catch(e) { console.warn('MiniMax fallback failed:', e); }
     }
 
-    // NVIDIA DiffusionGemma fallback (5th tier)
+    // 5th tier — NVIDIA DiffusionGemma 26B
     if (!raw && SITE_API_KEY_NVIDIA3) {
       try {
         document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying DiffusionGemma fallback...');
@@ -990,7 +990,7 @@ async function apiCall(prompt, maxTokens) {
       } catch(e) { console.warn('DiffusionGemma fallback failed:', e); }
     }
 
-    if (!raw) throw new Error(lastErr || 'Gemini failed after retries');
+    if (!raw) throw new Error(lastErr || 'All AI providers failed');
 
   } else if (provider === 'groq') {
     resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -1277,19 +1277,19 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
       const ms = data.steps?.find(s => s.type === 'model_output');
       letter = (data.output_text || ms?.content?.find(c=>c.type==='text')?.text || ms?.content?.[0]?.text || '').trim();
       // Groq fallback
+      if (!letter && SITE_API_KEY_NVIDIA) {
+        const nr = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA },
+          body: JSON.stringify({ model: 'nvidia/nemotron-ultra-253b-v1', max_tokens: 800, temperature: 0.7, messages: [{ role: 'user', content: coverPrompt }] })
+        });
+        if (nr.ok) { const nd = await nr.json(); letter = (nd.choices?.[0]?.message?.content || '').trim(); }
+      }
       if (!letter && SITE_API_KEY_GROQ) {
         const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_GROQ },
           body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 800, messages: [{ role: 'user', content: coverPrompt }] })
         });
         if (gr.ok) { const gd = await gr.json(); letter = (gd.choices?.[0]?.message?.content || '').trim(); }
-      }
-      if (!letter && SITE_API_KEY_NVIDIA) {
-        const nr = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA },
-          body: JSON.stringify({ model: 'meta/llama-3.3-70b-instruct', max_tokens: 800, temperature: 0.7, messages: [{ role: 'user', content: coverPrompt }] })
-        });
-        if (nr.ok) { const nd = await nr.json(); letter = (nd.choices?.[0]?.message?.content || '').trim(); }
       }
       if (!letter && SITE_API_KEY_NVIDIA2) {
         const nr2 = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
