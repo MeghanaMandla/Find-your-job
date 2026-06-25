@@ -20,7 +20,20 @@
   --nc:#00ffff;--np:#bf00ff;--npi:#ff0080;--ng:#00ff88;--na:#ffaa00;
   --bg:#020408;--gl:rgba(0,255,255,0.04);--bd:rgba(0,255,255,0.15);
   --t:#e0f0ff;--t2:#7090b0;--t3:#3a5070;
+  --nav-bg:rgba(2,4,8,.85);
 }
+body.light{
+  --bg:#f0f4f8;--gl:rgba(0,80,120,0.05);--bd:rgba(0,120,180,0.18);
+  --t:#0a1a2e;--t2:#3a5070;--t3:#90a8c0;--nav-bg:rgba(240,244,248,.92);
+}
+body.light #bg-canvas,body.light .aurora{opacity:.3}
+body.light .card{background:#fff;border-color:rgba(0,120,180,.15)}
+body.light .drop{background:#fff;border-color:rgba(0,120,180,.25)}
+body.light textarea.pa,body.light .gh-inp{background:#fff;border-color:rgba(0,120,180,.2);color:var(--t)}
+body.light nav{background:var(--nav-bg)}
+/* THEME TOGGLE */
+.thm{background:none;border:1px solid var(--bd);color:var(--t2);font-size:15px;padding:5px 10px;border-radius:8px;cursor:pointer;transition:all .2s;line-height:1}
+.thm:hover{border-color:var(--nc);color:var(--nc)}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--t);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;min-height:100vh}
 #bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
@@ -334,6 +347,7 @@ textarea.pa::placeholder{color:var(--t3)}
     <a onclick="showTab('interview');closeNav()">Interview</a>
     <a href="https://github.com" target="_blank">GitHub ↗</a>
   </div>
+  <button class="thm" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
 </nav>
 
@@ -560,6 +574,14 @@ textarea.pa::placeholder{color:var(--t3)}
         <button class="fb" onclick="filtJobs('saved',this)">❤️ Saved</button>
       </div>
       <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
+
+      <!-- Portal quick links — secondary option -->
+      <details style="margin-top:18px">
+        <summary style="cursor:pointer;font-size:11px;letter-spacing:2px;color:var(--t3);user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+          <span>▸</span> ALSO SEARCH ON INDIA JOB PORTALS
+        </summary>
+        <div id="portalBtns" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+      </details>
     </div>
   </div>
 
@@ -1393,6 +1415,7 @@ function toggleSave(title, btn) {
   const b = document.getElementById('svbadge');
   b.textContent = savedJobs.size;
   b.style.display = savedJobs.size > 0 ? 'inline' : 'none';
+  _persistSaved();
 }
 
 function applyJob(encodedUrl, title) {
@@ -1425,6 +1448,7 @@ async function searchJobs() {
   const skills = resumeSkillsFound.length ? resumeSkillsFound : (allJobs[0]?.tags || []).map(s => s.toLowerCase());
   allJobs = jobs.map(j => ({ ...j, match: calcJobMatch(j, skills) })).sort((a,b) => b.match - a.match);
   renderJobs(allJobs);
+  renderPortalButtons();
 }
 
 // ─── JOB TYPE & CATEGORY ───────────────────────────────────
@@ -1439,6 +1463,7 @@ function setJobType(type, btn) {
   const cats = document.getElementById('internCats');
   cats.style.display = (type === 'internship') ? 'flex' : 'none';
   searchJobs();
+  renderPortalButtons();
 }
 
 function setCat(cat, btn) {
@@ -1796,6 +1821,63 @@ function toggleNav() {
 }
 function closeNav() {
   document.getElementById('navLinks').classList.remove('open');
+}
+
+// ─── THEME TOGGLE ──────────────────────────────────────────
+function toggleTheme() {
+  const light = document.body.classList.toggle('light');
+  document.getElementById('thmBtn').textContent = light ? '☀️' : '🌙';
+  localStorage.setItem('theme', light ? 'light' : 'dark');
+}
+(function(){
+  if(localStorage.getItem('theme')==='light'){
+    document.body.classList.add('light');
+    document.getElementById('thmBtn').textContent='☀️';
+  }
+})();
+
+// ─── SAVED JOBS (localStorage) ─────────────────────────────
+function _persistSaved() {
+  localStorage.setItem('savedJobs', JSON.stringify([...savedJobs]));
+}
+function _loadSaved() {
+  try { savedJobs = new Set(JSON.parse(localStorage.getItem('savedJobs')||'[]')); } catch(_) {}
+}
+_loadSaved();
+
+// ─── PORTAL BUTTONS (branded, secondary) ───────────────────
+function renderPortalButtons() {
+  const el = document.getElementById('portalBtns');
+  if (!el) return;
+  const kw = document.getElementById('jsearch')?.value.trim() ||
+             (allJobs.length ? (allJobs[0]?.tags||[]).slice(0,2).join(' ') : 'software developer');
+  const state = document.getElementById('indiaState')?.value || '';
+  const city  = STATE_CITY[state] || state || 'India';
+  const q = encodeURIComponent(kw), l = encodeURIComponent(city+' India');
+  const ns = (state||'india').toLowerCase().replace(/\s+/g,'-');
+  const kSlug = kw.toLowerCase().replace(/\s+/g,'-');
+  const isIntern = currentJobType === 'internship';
+  const portals = isIntern ? [
+    {n:'Internshala',c:'#00A5EC',url:`https://internshala.com/internships/${kSlug}-internship-in-${ns}`},
+    {n:'Unstop',     c:'#FFB300',dark:true,url:`https://unstop.com/internships?search=${q}`},
+    {n:'LinkedIn',   c:'#0A66C2',url:`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw+' intern')}&location=${l}`},
+    {n:'LetsIntern', c:'#00b388',url:`https://www.letsintern.com/internships/${kSlug}`},
+    {n:'Indeed',     c:'#2557A7',url:`https://in.indeed.com/jobs?q=${encodeURIComponent(kw+' intern')}&l=${l}`},
+    {n:'Apna',       c:'#8A2BE2',url:`https://apna.co/jobs?designation=${encodeURIComponent(kw+' intern')}`},
+  ] : [
+    {n:'Naukri',     c:'#FF7555',url:`https://www.naukri.com/${kSlug}-jobs-in-${ns}`},
+    {n:'LinkedIn',   c:'#0A66C2',url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}`},
+    {n:'Indeed',     c:'#2557A7',url:`https://in.indeed.com/jobs?q=${q}&l=${l}`},
+    {n:'Foundit',    c:'#6600cc',url:`https://www.foundit.in/search-jobs?query=${q}&location=${encodeURIComponent(city)}`},
+    {n:'Apna',       c:'#8A2BE2',url:`https://apna.co/jobs?designation=${q}`},
+    {n:'Internshala',c:'#00A5EC',url:`https://internshala.com/jobs/${kSlug}-jobs-in-${ns}`},
+    {n:'Glassdoor',  c:'#0CAA41',url:`https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${q}`},
+    {n:'Cutshort',   c:'#5B4FE8',url:`https://cutshort.io/jobs?q=${q}`},
+    {n:'Wellfound',  c:'#222',url:`https://wellfound.com/jobs?role=${q}`},
+  ];
+  el.innerHTML = portals.map(p =>
+    `<a href="${p.url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;background:${p.c};color:${p.dark?'#111':'#fff'};opacity:.9;transition:opacity .2s;white-space:nowrap" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.9">${p.n}</a>`
+  ).join('');
 }
 
 function showToast(msg) {
