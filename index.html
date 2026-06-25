@@ -175,9 +175,17 @@ h1.tf-root{position:relative}
 .drop:hover,.drop.drag{box-shadow:0 0 0 2px var(--nc),var(--nm);background:var(--sf2)}
 .drop::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--nc),transparent);animation:sl 3s linear infinite}
 @keyframes sl{to{left:100%}}
-.di{font-size:50px;margin-bottom:14px;transition:transform .4s ease,filter .4s ease}
+.di{font-size:50px;margin-bottom:14px;transition:transform .5s ease,filter .5s ease,opacity .5s}
 .drop.drag .di{animation:bh-pull 1.8s ease-in-out infinite}
 @keyframes bh-pull{0%,100%{transform:scale(1) translateY(0)}50%{transform:scale(.82) translateY(6px);filter:blur(1px)}}
+/* file-sucked-in: icon implodes into hole */
+.drop.sucked .di{animation:bh-suck .65s cubic-bezier(.4,0,.2,1) forwards!important}
+@keyframes bh-suck{0%{transform:scale(1);opacity:1;filter:blur(0)}
+  60%{transform:scale(2.2) rotate(-180deg);opacity:.8;filter:blur(2px)}
+  100%{transform:scale(0) rotate(-360deg);opacity:0;filter:blur(8px)}}
+/* resume-load completion pulse */
+.drop.loaded .di{animation:bh-eject .6s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes bh-eject{0%{transform:scale(0);opacity:0}70%{transform:scale(1.25);opacity:1}100%{transform:scale(1);opacity:1}}
 .dt{font-size:17px;font-weight:600;margin-bottom:6px;color:var(--t1)}
 .ds{font-size:13px;color:var(--t2)}
 .dfmts{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
@@ -1060,6 +1068,14 @@ drop.addEventListener('drop', async e => { e.preventDefault(); drop.classList.re
 fi.addEventListener('change', async () => { if(fi.files[0]) await handleFile(fi.files[0]); });
 
 async function handleFile(file) {
+  // ── Black hole implosion + upload sound on file receive ──
+  drop.classList.add('sucked');
+  if (window._bhImplode) window._bhImplode();
+  if (window.playUpload) window.playUpload();
+  await new Promise(r => setTimeout(r, 650)); // wait for suck animation
+  drop.classList.remove('sucked');
+  drop.classList.add('loaded');
+
   const prog = document.getElementById('uprg');
   const fill = document.getElementById('uprgf');
   prog.classList.add('on');
@@ -3237,9 +3253,7 @@ void main(){
   if (!drop) return;
 
   const canvas = document.createElement('canvas');
-  // z-index:-1 keeps canvas behind drop zone's normal-flow children (.di, .dt etc.)
-  // Works because backdrop-filter on .drop creates a new stacking context
-  canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:-1;border-radius:18px;';
+  canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:0;border-radius:24px;';
   drop.insertBefore(canvas, drop.firstChild);
   const ctx = canvas.getContext('2d');
 
@@ -3247,112 +3261,123 @@ void main(){
   function resize() {
     W = drop.clientWidth; H = drop.clientHeight;
     canvas.width = W; canvas.height = H;
-    cx = W / 2; cy = H / 2;
-    R_HOLE = Math.min(W, H) * 0.13;   // event horizon
-    R_GLOW = R_HOLE * 1.6;            // inner accretion ring
+    cx = W/2; cy = H/2;
+    R_HOLE = Math.min(W,H) * 0.11;
+    R_GLOW = R_HOLE * 1.7;
   }
   new ResizeObserver(resize).observe(drop);
   resize();
 
-  const PCOUNT = 80;
-  const COLORS = ['#00ffff','#a855f7','#ec4899','#ffffff'];
+  const PCOUNT = 120;
+  const COLORS = ['#00ffff','#a855f7','#ec4899','#ffffff','#00ff88'];
   function mkParticle(forceR) {
+    const maxR = Math.min(W,H) * 0.46;
     return {
-      r: forceR ?? R_GLOW + Math.random() * (Math.min(W, H) * 0.42 - R_GLOW),
-      a: Math.random() * Math.PI * 2,
-      av: (0.01 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1),
-      dr: 0.35 + Math.random() * 0.4,
-      sz: 1 + Math.random() * 2.2,
+      r:  forceR ?? R_GLOW + Math.random() * (maxR - R_GLOW),
+      a:  Math.random() * Math.PI * 2,
+      av: (0.008 + Math.random() * 0.018) * (Math.random() < 0.5 ? 1 : -1),
+      dr: 0.25 + Math.random() * 0.35,
+      sz: 1 + Math.random() * 2.5,
       op: 0.5 + Math.random() * 0.5,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
     };
   }
   const pts = Array.from({length: PCOUNT}, () => mkParticle());
 
-  let opacity = 0, active = false, rot = 0, raf = null;
+  // idle=always-on faint pulse; drag=full glow; implode=file-drop burst
+  let opacity = 0.18, targetOp = 0.18, imploding = false, implodeT = 0;
+  let rot = 0, raf = null;
 
-  function draw() {
+  function draw(ts) {
     raf = requestAnimationFrame(draw);
-
-    if (active)       opacity = Math.min(1, opacity + 0.04);
-    else              opacity = Math.max(0, opacity - 0.04);
-    if (!active && opacity === 0) { raf = null; ctx.clearRect(0,0,W,H); return; }
+    opacity += (targetOp - opacity) * 0.06;
 
     ctx.clearRect(0, 0, W, H);
-    rot += 0.007;
+    rot += imploding ? 0.045 : 0.009;
 
-    // Dark vortex overlay
-    ctx.fillStyle = `rgba(0,0,0,${0.55 * opacity})`;
+    // Implode phase — particles rush inward
+    const implodePull = imploding ? Math.min(8, (ts - implodeT) / 80) : 1;
+
+    // Dark vortex base
+    ctx.fillStyle = `rgba(0,0,0,${0.45 * opacity})`;
     ctx.fillRect(0, 0, W, H);
 
-    // Outer nebula halo (purple → cyan)
-    const halo = ctx.createRadialGradient(cx, cy, R_GLOW, cx, cy, Math.min(W,H) * 0.52);
-    halo.addColorStop(0,   `rgba(168,85,247,${0.3*opacity})`);
-    halo.addColorStop(0.5, `rgba(0,255,255,${0.1*opacity})`);
-    halo.addColorStop(1,   'rgba(0,0,0,0)');
+    // Outer nebula halo
+    const halo = ctx.createRadialGradient(cx, cy, R_GLOW, cx, cy, Math.min(W,H)*0.5);
+    halo.addColorStop(0,  `rgba(168,85,247,${0.28*opacity})`);
+    halo.addColorStop(0.5,`rgba(0,255,255,${0.09*opacity})`);
+    halo.addColorStop(1,  'rgba(0,0,0,0)');
     ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(cx, cy, Math.min(W,H) * 0.52, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, Math.min(W,H)*0.5, 0, Math.PI*2); ctx.fill();
 
-    // Accretion disk glow ring
-    const disk = ctx.createRadialGradient(cx, cy, R_HOLE, cx, cy, R_GLOW + 18);
-    disk.addColorStop(0,   `rgba(0,255,255,${0.75*opacity})`);
-    disk.addColorStop(0.45, `rgba(0,200,255,${0.3*opacity})`);
+    // Accretion disk
+    const disk = ctx.createRadialGradient(cx, cy, R_HOLE, cx, cy, R_GLOW+20);
+    disk.addColorStop(0,   `rgba(0,255,255,${0.8*opacity})`);
+    disk.addColorStop(0.4, `rgba(0,200,255,${0.32*opacity})`);
     disk.addColorStop(1,   'rgba(0,255,255,0)');
     ctx.fillStyle = disk;
-    ctx.beginPath(); ctx.arc(cx, cy, R_GLOW + 18, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R_GLOW+20, 0, Math.PI*2); ctx.fill();
 
-    // Spinning arc arms — 4 cyan (clockwise) + 3 purple (counter)
+    // Spinning arcs
     ctx.save(); ctx.translate(cx, cy);
-    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 14;
+    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 18;
+    const arcOp = imploding ? Math.min(1, opacity*1.8) : opacity;
     for (let i = 0; i < 4; i++) {
-      const s = rot + Math.PI / 2 * i;
-      ctx.beginPath(); ctx.arc(0, 0, R_GLOW, s, s + 0.65);
-      ctx.strokeStyle = `rgba(0,255,255,${0.85*opacity})`; ctx.lineWidth = 3; ctx.stroke();
+      const s = rot + Math.PI/2*i;
+      ctx.beginPath(); ctx.arc(0, 0, R_GLOW, s, s+0.7);
+      ctx.strokeStyle = `rgba(0,255,255,${0.9*arcOp})`; ctx.lineWidth = imploding?4:2.5; ctx.stroke();
     }
     ctx.shadowColor = '#a855f7';
     for (let i = 0; i < 3; i++) {
-      const s = -rot * 0.65 + (Math.PI*2/3) * i;
-      ctx.beginPath(); ctx.arc(0, 0, R_GLOW - 9, s, s + 0.5);
-      ctx.strokeStyle = `rgba(168,85,247,${0.65*opacity})`; ctx.lineWidth = 2; ctx.stroke();
+      const s = -rot*0.6 + (Math.PI*2/3)*i;
+      ctx.beginPath(); ctx.arc(0, 0, R_GLOW-10, s, s+0.55);
+      ctx.strokeStyle = `rgba(168,85,247,${0.7*arcOp})`; ctx.lineWidth = imploding?3:2; ctx.stroke();
     }
     ctx.shadowBlur = 0; ctx.restore();
 
-    // Particles — spiral inward with angular momentum conservation
-    ctx.shadowBlur = 5;
+    // Particles — spiral in; during implode rush much faster
+    ctx.shadowBlur = 6;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
-      const pull = R_GLOW / Math.max(p.r, R_HOLE);
-      p.a += p.av * pull;
-      p.r -= p.dr * pull;
+      const pull = (R_GLOW / Math.max(p.r, R_HOLE)) * implodePull;
+      p.a  += p.av * pull;
+      p.r  -= p.dr * pull;
       if (p.r < R_HOLE) {
-        pts[i] = mkParticle(Math.min(W,H) * (0.28 + Math.random() * 0.2));
+        pts[i] = mkParticle(Math.min(W,H)*(0.26 + Math.random()*0.22));
         continue;
       }
-      const fade = Math.min(1, (p.r - R_HOLE) / R_GLOW);
-      const x = cx + Math.cos(p.a) * p.r;
-      const y = cy + Math.sin(p.a) * p.r;
+      const fade = Math.min(1, (p.r-R_HOLE)/R_GLOW);
       ctx.globalAlpha = opacity * p.op * fade;
-      ctx.shadowColor  = p.color;
-      ctx.fillStyle    = p.color;
-      ctx.beginPath(); ctx.arc(x, y, p.sz * (0.4 + 0.6 * fade), 0, Math.PI*2); ctx.fill();
+      ctx.shadowColor  = p.color; ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(p.a)*p.r, cy + Math.sin(p.a)*p.r,
+        p.sz*(0.4+0.6*fade), 0, Math.PI*2); ctx.fill();
     }
     ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 
-    // Black singularity — painted last so it occludes everything
-    const sing = ctx.createRadialGradient(cx, cy, R_HOLE*0.25, cx, cy, R_HOLE);
+    // Singularity
+    const sing = ctx.createRadialGradient(cx, cy, R_HOLE*0.2, cx, cy, R_HOLE);
     sing.addColorStop(0,   'rgba(0,0,0,1)');
-    sing.addColorStop(0.75,'rgba(0,0,0,1)');
-    sing.addColorStop(1,   'rgba(0,0,0,0.4)');
+    sing.addColorStop(0.8, 'rgba(0,0,0,1)');
+    sing.addColorStop(1,   'rgba(0,0,0,0.35)');
     ctx.fillStyle = sing;
     ctx.beginPath(); ctx.arc(cx, cy, R_HOLE, 0, Math.PI*2); ctx.fill();
-  }
 
-  // Watch for .drag class toggled by dragover / dragleave handlers
+    // End implode after 900ms
+    if (imploding && ts - implodeT > 900) { imploding = false; targetOp = 0.18; }
+  }
+  raf = requestAnimationFrame(draw);
+
+  // Drag events → ramp up
   new MutationObserver(() => {
-    const on = drop.classList.contains('drag');
-    if (on && !active) { active = true; if (!raf) raf = requestAnimationFrame(draw); }
-    else if (!on) active = false;
+    const dragging = drop.classList.contains('drag');
+    targetOp = dragging ? 1 : 0.18;
   }).observe(drop, { attributes: true, attributeFilter: ['class'] });
+
+  // File dropped → implode burst
+  window._bhImplode = function(ts) {
+    imploding = true; implodeT = ts ?? performance.now();
+    targetOp = 1;
+  };
 })();
 
 function resetAll() {
@@ -3363,6 +3388,7 @@ function resetAll() {
   document.getElementById('abtn').disabled = false;
   document.getElementById('dico').textContent = '📄';
   document.getElementById('dtit').textContent = 'Drop your resume here';
+  drop.classList.remove('sucked','loaded');
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
   document.getElementById('linkedin-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to generate optimized LinkedIn profile content.</p>';
@@ -3432,6 +3458,52 @@ function resetAll() {
       g.gain.setValueAtTime(0.028,c.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.016);
       src.start(); src.stop(c.currentTime+0.016);
+    } catch(e){}
+  };
+
+  // ── File upload: gravitational whoosh + implosion ──
+  window.playUpload = function(){
+    try {
+      const c=getCtx();
+      const t=c.currentTime;
+      // 1. Rising whoosh — filtered noise sweep
+      const sz=Math.ceil(c.sampleRate*0.7);
+      const buf=c.createBuffer(1,sz,c.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<sz;i++) d[i]=(Math.random()*2-1);
+      const src=c.createBufferSource();
+      src.buffer=buf;
+      const bpf=c.createBiquadFilter(); bpf.type='bandpass'; bpf.Q.value=2;
+      bpf.frequency.setValueAtTime(200,t);
+      bpf.frequency.exponentialRampToValueAtTime(3200,t+0.5);
+      const wg=c.createGain();
+      wg.gain.setValueAtTime(0,t);
+      wg.gain.linearRampToValueAtTime(0.35,t+0.1);
+      wg.gain.exponentialRampToValueAtTime(0.001,t+0.7);
+      src.connect(bpf); bpf.connect(wg); wg.connect(c.destination);
+      src.start(t); src.stop(t+0.75);
+
+      // 2. Deep gravitational thud at peak
+      const sub=c.createOscillator(), sg=c.createGain();
+      sub.type='sine'; sub.frequency.setValueAtTime(80,t+0.38);
+      sub.frequency.exponentialRampToValueAtTime(20,t+0.85);
+      sg.gain.setValueAtTime(0,t+0.38);
+      sg.gain.linearRampToValueAtTime(0.55,t+0.44);
+      sg.gain.exponentialRampToValueAtTime(0.001,t+0.9);
+      sub.connect(sg); sg.connect(c.destination);
+      sub.start(t+0.38); sub.stop(t+0.95);
+
+      // 3. High shimmer — confirmation sparkle
+      [1047,1319,1568,2093].forEach((f,i)=>{
+        const o=c.createOscillator(), g2=c.createGain();
+        o.type='sine'; o.frequency.value=f;
+        const st=t+0.5+i*0.07;
+        g2.gain.setValueAtTime(0,st);
+        g2.gain.linearRampToValueAtTime(0.09,st+0.01);
+        g2.gain.exponentialRampToValueAtTime(0.001,st+0.4);
+        o.connect(g2); g2.connect(c.destination);
+        o.start(st); o.stop(st+0.45);
+      });
     } catch(e){}
   };
 
