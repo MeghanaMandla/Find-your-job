@@ -2435,6 +2435,112 @@ initDecryptedText(document.querySelector('.hsub'), {
   requestAnimationFrame(() => { buildCopies(); requestAnimationFrame(animate); });
 })();
 
+// ─── RIBBONS (Ribbons port — Canvas2D, replaces OGL/WebGL) ─
+(function initRibbons() {
+  const hero = document.getElementById('hsec');
+  if (!hero) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+  hero.insertBefore(canvas, hero.firstChild);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  let W = 0, H = 0;
+  function resize() {
+    W = hero.clientWidth; H = hero.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Props matching user's usage: colors, baseThickness=10, speedMultiplier=0.5, maxAge=500
+  const COLORS        = ['#5227FF', '#a855f7']; // user's purple + site --np for depth
+  const BASE_SPRING   = 0.03;
+  const BASE_FRICTION = 0.9;
+  const BASE_THICK    = 10;
+  const OFFSET        = 0.05;
+  const MAX_AGE       = 500;
+  const POINTS        = 50;
+  const SPEED         = 0.5;
+
+  function hexRgb(h) { const n=parseInt(h.replace('#',''),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+
+  const center = (COLORS.length - 1) / 2;
+  const lines = COLORS.map((color, idx) => ({
+    rgb:  hexRgb(color),
+    spr:  BASE_SPRING   + (Math.random()-0.5)*0.01,
+    fri:  BASE_FRICTION + (Math.random()-0.5)*0.02,
+    thk:  BASE_THICK    + (Math.random()-0.5)*3,
+    ox:  (idx - center) * OFFSET + (Math.random()-0.5)*0.01,
+    oy:  (Math.random()-0.5)*0.1,
+    vx:0, vy:0,
+    pts: Array.from({length: POINTS}, () => ({x: 0.5, y: 0.5}))
+  }));
+
+  // Mouse in 0-1 space (y=0 at top)
+  const mouse = {x: 0.5, y: 0.5};
+  function updateMouse(e) {
+    const r = hero.getBoundingClientRect();
+    const cx = e.changedTouches?.[0]?.clientX ?? e.clientX;
+    const cy = e.changedTouches?.[0]?.clientY ?? e.clientY;
+    mouse.x = (cx - r.left) / r.width;
+    mouse.y = (cy - r.top)  / r.height;
+  }
+  hero.addEventListener('mousemove', updateMouse);
+  hero.addEventListener('touchstart', updateMouse, {passive: true});
+  hero.addEventListener('touchmove',  updateMouse, {passive: true});
+
+  let lastTs = performance.now();
+  function draw() {
+    requestAnimationFrame(draw);
+    const now = performance.now();
+    const dt  = Math.min(now - lastTs, 64);
+    lastTs = now;
+
+    ctx.clearRect(0, 0, W, H);
+
+    lines.forEach(line => {
+      // Spring physics: first point chases mouse + per-ribbon offset
+      const tx = mouse.x + line.ox * 0.5;
+      const ty = mouse.y + line.oy * 0.5;
+      line.vx = (line.vx + (tx - line.pts[0].x) * line.spr) * line.fri;
+      line.vy = (line.vy + (ty - line.pts[0].y) * line.spr) * line.fri;
+      line.pts[0].x += line.vx;
+      line.pts[0].y += line.vy;
+
+      // Lerp chain — same formula as OGL component
+      const segDelay = MAX_AGE / (POINTS - 1);
+      const alpha    = Math.min(1, (dt * SPEED) / segDelay);
+      for (let i = 1; i < POINTS; i++) {
+        line.pts[i].x += (line.pts[i-1].x - line.pts[i].x) * alpha;
+        line.pts[i].y += (line.pts[i-1].y - line.pts[i].y) * alpha;
+      }
+
+      // Draw tapered ribbon — thick + bright at head, thin + faded at tail
+      const [r,g,b] = line.rgb;
+      ctx.lineCap  = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = `rgba(${r},${g},${b},0.55)`;
+      ctx.shadowBlur  = 14;
+
+      for (let i = 0; i < POINTS - 1; i++) {
+        const t = i / (POINTS - 1);
+        ctx.beginPath();
+        ctx.moveTo(line.pts[i  ].x * W, line.pts[i  ].y * H);
+        ctx.lineTo(line.pts[i+1].x * W, line.pts[i+1].y * H);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${0.9*(1-t*0.9)})`;
+        ctx.lineWidth   = line.thk * (1 - t * 0.85);
+        ctx.stroke();
+      }
+
+      ctx.shadowBlur = 0;
+    });
+  }
+  draw();
+})();
+
 // ─── CLICK SPARK (ClickSpark port) ─────────────────────────
 (function initClickSpark() {
   const SPARK_SIZE   = 10;
