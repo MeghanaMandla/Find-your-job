@@ -48,9 +48,17 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 /* NAV */
 nav{position:fixed;top:0;width:100%;z-index:100;padding:14px 40px;display:flex;align-items:center;justify-content:space-between;background:rgba(2,4,8,.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--bd)}
 .logo{font-size:19px;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--nc),var(--np));-webkit-background-clip:text;-webkit-text-fill-color:transparent;cursor:pointer}
-.nav-links{display:flex;gap:20px;align-items:center}
-.nav-links a{color:var(--t2);text-decoration:none;font-size:12px;letter-spacing:1px;cursor:pointer;transition:color .3s}
-.nav-links a:hover{color:var(--nc)}
+/* PillNav */
+.pn-wrap{display:flex;gap:2px;align-items:center;list-style:none;margin:0;padding:4px;background:rgba(255,255,255,0.05);border:1px solid var(--bd);border-radius:100px}
+.pn-pill{position:relative;display:flex;align-items:center;justify-content:center;padding:6px 14px;border-radius:100px;overflow:hidden;cursor:pointer;text-decoration:none;font-size:12px;letter-spacing:.5px;font-weight:500;user-select:none;border:none;background:none;white-space:nowrap;color:var(--t2)}
+.pn-circle{position:absolute;left:50%;background:var(--nc);border-radius:50%;transform:scale(0);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);pointer-events:none;z-index:0}
+.pn-pill:hover .pn-circle{transform:scale(1.2)}
+.pn-pill.pn-active{color:var(--nc);background:rgba(0,255,255,0.08)}
+.pn-stack{position:relative;overflow:hidden;height:1.1em;line-height:1.1;display:block;z-index:1}
+.pn-label{display:block;transition:transform 0.25s cubic-bezier(0.4,0,0.2,1)}
+.pn-label-h{position:absolute;top:0;left:0;right:0;color:#000;transform:translateY(110%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);white-space:nowrap}
+.pn-pill:hover .pn-label{transform:translateY(-110%)}
+.pn-pill:hover .pn-label-h{transform:translateY(0)}
 .nbtn{background:linear-gradient(135deg,var(--nc),var(--np));color:#000;font-size:11px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:1px;cursor:pointer;border:none;transition:opacity .2s}
 .nbtn:hover{opacity:.85}
 
@@ -364,9 +372,11 @@ textarea.pa::placeholder{color:var(--t3)}
 @media(max-width:700px){
   nav{padding:12px 16px;flex-wrap:wrap;gap:8px}
   .hbg{display:block}
-  .nav-links{display:none;flex-direction:column;width:100%;gap:12px;padding:10px 0;border-top:1px solid var(--bd)}
-  .nav-links.open{display:flex}
-  .nav-links a{font-size:13px}
+  .pn-wrap{display:none;flex-direction:column;width:100%;gap:2px;padding:8px 4px;border-radius:16px;border-top:1px solid var(--bd);background:none;border:none}
+  .pn-wrap.open{display:flex}
+  .pn-circle,.pn-label-h{display:none}
+  .pn-pill:hover .pn-label{transform:none}
+  .pn-pill{justify-content:flex-start;padding:10px 14px;font-size:13px;width:100%}
   .nbtn{display:none}
   .sh{grid-template-columns:1fr;text-align:center}.srw{margin:0 auto}
   .srow{grid-template-columns:repeat(3,1fr)}
@@ -386,12 +396,12 @@ textarea.pa::placeholder{color:var(--t3)}
 <nav>
   <div class="logo" onclick="resetAll()">⚡ RESUME·AI</div>
   <button class="hbg" id="hbg" onclick="toggleNav()" aria-label="Menu">☰</button>
-  <div class="nav-links" id="navLinks">
-    <a onclick="resetAll();closeNav()">Home</a>
-    <a onclick="showTab('jobs');closeNav()">Jobs</a>
-    <a onclick="showTab('interview');closeNav()">Interview</a>
-    <a href="https://github.com" target="_blank">GitHub ↗</a>
-  </div>
+  <ul class="pn-wrap" id="navLinks" role="menubar" aria-label="Primary">
+    <li role="none"><a class="pn-pill pn-active" data-pn="home" onclick="resetAll();closeNav()" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">Home</span><span class="pn-label-h" aria-hidden="true">Home</span></span></a></li>
+    <li role="none"><a class="pn-pill" data-pn="jobs" onclick="showTab('jobs');closeNav()" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">Jobs</span><span class="pn-label-h" aria-hidden="true">Jobs</span></span></a></li>
+    <li role="none"><a class="pn-pill" data-pn="interview" onclick="showTab('interview');closeNav()" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">Interview</span><span class="pn-label-h" aria-hidden="true">Interview</span></span></a></li>
+    <li role="none"><a class="pn-pill" href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">GitHub ↗</span><span class="pn-label-h" aria-hidden="true">GitHub ↗</span></span></a></li>
+  </ul>
   <button class="thm" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
 </nav>
@@ -2018,10 +2028,42 @@ function renderGrammar(matches, text) {
 }
 
 // ─── HELPERS ───────────────────────────────────────────────
+// ─── PILL NAV (PillNav port) ───────────────────────────────
+function _pillNavLayout() {
+  document.querySelectorAll('.pn-pill').forEach(pill => {
+    const circle = pill.querySelector('.pn-circle');
+    if (!circle) return;
+    const { width: w, height: h } = pill.getBoundingClientRect();
+    if (!w || !h) return;
+    // Same arc-chord formula as the React component
+    const R      = ((w*w)/4 + h*h) / (2*h);
+    const D      = Math.ceil(2*R) + 2;
+    const delta  = Math.ceil(R - Math.sqrt(Math.max(0, R*R - (w*w)/4))) + 1;
+    const originY = D - delta;
+    circle.style.width  = `${D}px`;
+    circle.style.height = `${D}px`;
+    circle.style.bottom = `-${delta}px`;
+    circle.style.marginLeft = `-${Math.ceil(D/2)}px`;
+    circle.style.transformOrigin = `50% ${originY}px`;
+  });
+}
+// Run after paint so getBoundingClientRect is accurate
+requestAnimationFrame(() => requestAnimationFrame(_pillNavLayout));
+window.addEventListener('resize', _pillNavLayout);
+if (document.fonts?.ready) document.fonts.ready.then(_pillNavLayout);
+
+function _setActivePill(key) {
+  document.querySelectorAll('.pn-pill[data-pn]').forEach(p =>
+    p.classList.toggle('pn-active', p.dataset.pn === key)
+  );
+}
+
 function showTab(id) {
   const ids = ['skills','jobs','feedback','rewrite','cover','interview','salary','roadmap','github','grammar'];
   document.querySelectorAll('.tbtn').forEach((b,i) => b.classList.toggle('on', ids[i]===id));
   document.querySelectorAll('.tp').forEach(p => p.classList.toggle('on', p.id==='tp-'+id));
+  // Sync active pill for nav items that map to tabs
+  _setActivePill({'jobs':'jobs','interview':'interview'}[id] ?? null);
 }
 
 function toggleIQ(el) {
@@ -2614,6 +2656,7 @@ function resetAll() {
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
   resumeText=''; allJobs=[]; savedJobs=new Set(); resumeSkillsFound=[]; resumeSkillsMissing=[]; resumeRoles=[]; sortMode='match';
+  _setActivePill('home');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
