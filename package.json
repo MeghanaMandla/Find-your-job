@@ -1,0 +1,24 @@
+{
+  "name": "find-your-job",
+  "version": "1.0.0",
+  "description": "> AI-powered resume analyzer with job matching, ATS scoring, resume rewriting, cover letter generation, interview prep, and salary insights.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MeghanaMandla/Find-your-job.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MeghanaMandla/Find-your-job/issues"
+  },
+  "homepage": "https://github.com/MeghanaMandla/Find-your-job#readme",
+  "dependencies": {
+    "playwright": "^1.61.1"
+  }
+}
