@@ -846,6 +846,11 @@ async function startAnalysis() {
     document.getElementById('res').classList.add('on');
     showTab('jobs');
     document.getElementById('res').scrollIntoView({ behavior: 'smooth' });
+    // Auto-search jobs using AI-extracted keywords — no user action needed
+    if (result.searchKeywords?.length) {
+      document.getElementById('jsearch').value = result.searchKeywords.slice(0, 3).join(' ');
+    }
+    searchJobs();
     checkGrammar(resumeText);
   } catch(e) {
     stopLoader();
@@ -963,24 +968,14 @@ Replace example values with REAL content from this resume. For the rewrite field
 RESUME:
 ${resumeSlice}`;
 
-  // Fire AI calls + real job search in parallel
-  const [r1, r2, realJobs] = await Promise.all([
+  // Fire both AI calls in parallel (no job fetch here — searchJobs() handles it after)
+  const [r1, r2] = await Promise.all([
     apiCall(prompt1, 4000),
     apiCall(prompt2, 2000),
-    fetchRealJobs('software developer') // Adzuna India API — no country suffix needed
   ]);
 
   const merged = { ...r1, ...r2 };
-
-  // Now fetch jobs using actual keywords from AI result
-  const keywords = merged.searchKeywords || [];
-  const finalJobs = keywords.length
-    ? await fetchRealJobs(keywords.join(' '))
-    : realJobs;
-
-  const foundSkills = (merged.keywords || []).filter(k => k.status === 'found').map(k => k.word.toLowerCase());
-  merged.jobs = finalJobs.map(j => ({ ...j, match: calcJobMatch(j, foundSkills) }))
-                         .sort((a, b) => b.match - a.match);
+  merged.jobs = []; // populated by searchJobs() after renderAll
 
   return merged;
 }
@@ -1412,13 +1407,22 @@ function applyJob(encodedUrl, title) {
 async function searchJobs() {
   const q = buildSearchQuery();
   const label = currentJobType === 'internship' ? 'internships' : currentJobType === 'fresher' ? 'fresher jobs' : 'jobs';
-  document.getElementById('jgrid').innerHTML = `<p style="color:var(--t2);padding:20px">Searching ${label}…</p>`;
+  const skillChips = resumeSkillsFound.slice(0, 5).map(s =>
+    `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;background:rgba(0,255,255,.1);color:var(--nc);border:1px solid rgba(0,255,255,.2)">${s}</span>`
+  ).join('');
+  document.getElementById('jgrid').innerHTML = `
+    <div style="grid-column:1/-1;padding:28px;text-align:center">
+      <div style="font-size:22px;margin-bottom:10px">🤖</div>
+      <div style="color:var(--nc);font-size:14px;font-weight:600;margin-bottom:10px">Finding ${label} for you…</div>
+      ${skillChips ? `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${skillChips}</div>` : ''}
+      <div style="color:var(--t3);font-size:12px;letter-spacing:1px">Searching Adzuna India…</div>
+    </div>`;
   const jobs = await fetchRealJobs(q);
   if (!jobs.length) {
-    document.getElementById('jgrid').innerHTML = '<p style="color:var(--t2);padding:20px">No results found. Try different keywords or select another state.</p>';
+    document.getElementById('jgrid').innerHTML = '<div style="grid-column:1/-1;padding:20px;color:var(--t2)">No results found. Try different keywords or select another state.</div>';
     return;
   }
-  const skills = allJobs.length ? (allJobs[0]?.tags || []).map(s => s.toLowerCase()) : [];
+  const skills = resumeSkillsFound.length ? resumeSkillsFound : (allJobs[0]?.tags || []).map(s => s.toLowerCase());
   allJobs = jobs.map(j => ({ ...j, match: calcJobMatch(j, skills) })).sort((a,b) => b.match - a.match);
   renderJobs(allJobs);
 }
