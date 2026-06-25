@@ -96,9 +96,17 @@ h1.tf-root{position:relative}
 .rt-char{display:inline-block}
 .rt-space{white-space:pre}
 .hsub{font-size:15px;color:var(--t2);max-width:540px;line-height:1.85;margin-bottom:28px}
-.hfeats{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-bottom:44px}
-.hf{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2)}
-.hf .d{width:5px;height:5px;border-radius:50%}
+/* LogoLoop ticker */
+.ll-root{position:relative;overflow:hidden;width:100%;margin-bottom:44px;--ll-gap:40px;padding:4px 0}
+.ll-root::before,.ll-root::after{content:'';position:absolute;top:0;bottom:0;width:clamp(40px,10%,140px);pointer-events:none;z-index:2}
+.ll-root::before{left:0;background:linear-gradient(to right,var(--bg) 0%,transparent 100%)}
+.ll-root::after{right:0;background:linear-gradient(to left,var(--bg) 0%,transparent 100%)}
+.ll-track{display:flex;will-change:transform;user-select:none}
+.ll-list{display:flex;align-items:center;list-style:none;padding:0;margin:0;flex-shrink:0}
+.ll-item{flex:0 0 auto;margin-right:var(--ll-gap);display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--t2);white-space:nowrap;padding:5px 14px;border-radius:20px;border:1px solid var(--b);background:var(--c2);transition:transform 0.3s cubic-bezier(0.4,0,0.2,1),color 0.2s ease,border-color 0.2s ease;cursor:default}
+.ll-item:hover{transform:scale(1.1);color:var(--t1);border-color:var(--nc)}
+.ll-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;box-shadow:0 0 4px currentColor}
+@media(prefers-reduced-motion:reduce){.ll-track{transform:translate3d(0,0,0)!important}.ll-item{transition:none!important}}
 
 /* UPLOAD */
 .uzone{position:relative;z-index:2;width:100%;max-width:720px;margin:0 auto}
@@ -395,14 +403,20 @@ textarea.pa::placeholder{color:var(--t3)}
     <span class="rt-root"><span class="rt-inner" id="rt-inner"></span></span>
   </div>
   <p class="hsub">Upload your PDF resume — AI extracts your real skills, matches you to actual jobs, rewrites weak sections, writes cover letters, preps interviews, and builds your career roadmap.</p>
-  <div class="hfeats">
-    <div class="hf"><div class="d" style="background:var(--nc)"></div>Real PDF Parsing</div>
-    <div class="hf"><div class="d" style="background:var(--np)"></div>AI Job Matching</div>
-    <div class="hf"><div class="d" style="background:var(--npi)"></div>ATS Score</div>
-    <div class="hf"><div class="d" style="background:var(--ng)"></div>Resume Rewrite</div>
-    <div class="hf"><div class="d" style="background:var(--na)"></div>Cover Letter</div>
-    <div class="hf"><div class="d" style="background:var(--nc)"></div>Interview Prep</div>
-    <div class="hf"><div class="d" style="background:var(--np)"></div>Salary Insights</div>
+  <div class="ll-root" id="featureTicker" role="region" aria-label="Features">
+    <div class="ll-track" id="ll-track">
+      <ul class="ll-list" id="ll-seq" role="list">
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--nc)"></span>Real PDF Parsing</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--np)"></span>AI Job Matching</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--npi)"></span>ATS Score</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--ng)"></span>Resume Rewrite</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--na)"></span>Cover Letter</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--nc)"></span>Interview Prep</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--np)"></span>Salary Insights</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--npi)"></span>Career Roadmap</li>
+        <li class="ll-item" role="listitem"><span class="ll-dot" style="background:var(--ng)"></span>GitHub Analysis</li>
+      </ul>
+    </div>
   </div>
 
   <div class="uzone">
@@ -2240,6 +2254,69 @@ initTrueFocus();
 
   enter(TEXTS[idx]);
   schedule();
+})();
+
+// ─── LOGO LOOP TICKER (LogoLoop port) ──────────────────────
+(function initLogoLoop() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const root  = document.getElementById('featureTicker');
+  const track = document.getElementById('ll-track');
+  const seq   = document.getElementById('ll-seq');
+  if (!root || !track || !seq) return;
+
+  const SPEED     = 90;   // px/s scroll speed
+  const HOVER_SPD = 0;    // px/s on hover (pause)
+  const TAU       = 0.25; // smoothing time constant (matches ANIMATION_CONFIG.SMOOTH_TAU)
+
+  let seqWidth  = 0;
+  let offset    = 0;
+  let vel       = 0;
+  let lastTs    = null;
+  let isHovered = false;
+
+  function buildCopies() {
+    const w = seq.getBoundingClientRect().width;
+    if (!w) return;
+    seqWidth = w;
+    const needed = Math.ceil(root.clientWidth / w) + 2;
+    // Remove extra copies beyond the original
+    while (track.children.length > 1) track.lastChild.remove();
+    for (let i = 1; i < Math.max(2, needed); i++) {
+      const copy = seq.cloneNode(true);
+      copy.setAttribute('aria-hidden', 'true');
+      track.appendChild(copy);
+    }
+  }
+
+  function animate(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min((ts - lastTs) / 1000, 0.064);
+    lastTs = ts;
+
+    const target = isHovered ? HOVER_SPD : SPEED;
+    vel += (target - vel) * (1 - Math.exp(-dt / TAU));
+
+    if (seqWidth > 0) {
+      offset = ((offset + vel * dt) % seqWidth + seqWidth) % seqWidth;
+      track.style.transform = `translate3d(${-offset}px,0,0)`;
+    }
+    requestAnimationFrame(animate);
+  }
+
+  track.addEventListener('mouseenter', () => { isHovered = true; });
+  track.addEventListener('mouseleave', () => { isHovered = false; });
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(buildCopies);
+    ro.observe(root);
+    ro.observe(seq);
+  } else {
+    window.addEventListener('resize', buildCopies);
+  }
+
+  // Wait one frame for layout, then build + start
+  requestAnimationFrame(() => { buildCopies(); requestAnimationFrame(animate); });
 })();
 
 function resetAll() {
