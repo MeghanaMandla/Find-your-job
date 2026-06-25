@@ -3175,120 +3175,194 @@ function resetAll() {
     return ctx;
   }
 
+  // ── Smooth click pop ──
   window.playClick = function(){
     if (!soundOn) return;
     try {
-      const c = getCtx(), o = c.createOscillator(), g = c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type = 'sine';
-      o.frequency.setValueAtTime(880, c.currentTime);
-      o.frequency.exponentialRampToValueAtTime(320, c.currentTime + 0.06);
-      g.gain.setValueAtTime(0.07, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.07);
-      o.start(); o.stop(c.currentTime + 0.07);
+      const c=getCtx(), o=c.createOscillator(), g=c.createGain();
+      o.connect(g); g.connect(c.destination); o.type='sine';
+      o.frequency.setValueAtTime(520,c.currentTime);
+      o.frequency.exponentialRampToValueAtTime(220,c.currentTime+0.09);
+      g.gain.setValueAtTime(0,c.currentTime);
+      g.gain.linearRampToValueAtTime(0.045,c.currentTime+0.004);
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);
+      o.start(); o.stop(c.currentTime+0.1);
     } catch(e){}
   };
 
+  // ── Smooth success chime — G major arpeggio (gentle) ──
   window.playSuccess = function(){
     if (!soundOn) return;
     try {
-      const c = getCtx();
-      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-        const o = c.createOscillator(), g = c.createGain();
-        o.connect(g); g.connect(c.destination);
-        o.type = 'sine'; o.frequency.value = f;
-        const t = c.currentTime + i * 0.13;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.1, t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
-        o.start(t); o.stop(t + 0.38);
+      const c=getCtx();
+      [392.00,493.88,587.33,783.99].forEach((f,i)=>{
+        const o=c.createOscillator(), g=c.createGain();
+        o.connect(g); g.connect(c.destination); o.type='sine'; o.frequency.value=f;
+        const t=c.currentTime+i*0.14;
+        g.gain.setValueAtTime(0,t);
+        g.gain.linearRampToValueAtTime(0.07,t+0.012);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.65);
+        o.start(t); o.stop(t+0.68);
       });
     } catch(e){}
   };
 
+  // ── Smooth typing tick — shaped noise, low-pass filtered ──
   window.playType = function(){
     if (!soundOn) return;
-    const now = Date.now();
-    if (now - lastType < 90) return;
-    lastType = now;
+    const now=Date.now(); if(now-lastType<105)return; lastType=now;
     try {
-      const c = getCtx();
-      const sz = Math.ceil(c.sampleRate * 0.022);
-      const buf = c.createBuffer(1, sz, c.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < sz; i++) d[i] = (Math.random()*2-1)*0.35;
-      const src = c.createBufferSource(), g = c.createGain();
-      const flt = c.createBiquadFilter();
-      flt.type = 'bandpass'; flt.frequency.value = 2600; flt.Q.value = 0.9;
-      src.buffer = buf; src.connect(flt); flt.connect(g); g.connect(c.destination);
-      g.gain.setValueAtTime(0.055, c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.022);
-      src.start(); src.stop(c.currentTime + 0.022);
+      const c=getCtx();
+      const sz=Math.ceil(c.sampleRate*0.016);
+      const buf=c.createBuffer(1,sz,c.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<sz;i++) d[i]=(Math.random()*2-1)*(1-i/sz);
+      const src=c.createBufferSource(), g=c.createGain();
+      const flt=c.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=1400;
+      src.buffer=buf; src.connect(flt); flt.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(0.028,c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.016);
+      src.start(); src.stop(c.currentTime+0.016);
     } catch(e){}
   };
 
+  // ── Gymnopédie No. 1 — Erik Satie (BPM 54, 3/4 time) ──
   function startAmbient(){
     if (ambGain) return;
     if (!ctx) ctx = new AC();
     if (ctx.state === 'suspended') ctx.resume();
     const c = ctx;
     ambPlaying = true;
+
+    // Master bus — slow fade-in
     ambGain = c.createGain();
     ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.38, c.currentTime + 3.5);
+    ambGain.gain.linearRampToValueAtTime(0.92, c.currentTime + 5);
     ambGain.connect(c.destination);
 
-    // Spacious reverb tail — two long delay lines through a low-pass filter
-    const d1=c.createDelay(3), g1=c.createGain();
-    const d2=c.createDelay(2), g2=c.createGain();
-    d1.delayTime.value=0.9; g1.gain.value=0.28;
-    d2.delayTime.value=1.4; g2.gain.value=0.18;
-    const lpf=c.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=1600;
-    ambGain.connect(d1); d1.connect(g1); g1.connect(lpf);
-    ambGain.connect(d2); d2.connect(g2); g2.connect(lpf);
-    lpf.connect(c.destination);
+    // Concert-hall reverb: two delay lines through a warm low-pass
+    const rv1=c.createDelay(3), rv1g=c.createGain(), rvLpf=c.createBiquadFilter();
+    const rv2=c.createDelay(2), rv2g=c.createGain();
+    rv1.delayTime.value=1.05; rv1g.gain.value=0.3;
+    rv2.delayTime.value=0.62; rv2g.gain.value=0.18;
+    rvLpf.type='lowpass'; rvLpf.frequency.value=2000;
+    ambGain.connect(rv1); rv1.connect(rv1g); rv1g.connect(rvLpf); rvLpf.connect(c.destination);
+    ambGain.connect(rv2); rv2.connect(rv2g); rv2g.connect(c.destination);
 
-    // Soft wind — narrow bandpass filtered noise
+    // Subtle room noise (barely audible breath)
     const nBuf=c.createBuffer(1,c.sampleRate*4,c.sampleRate);
-    const nData=nBuf.getChannelData(0);
-    for(let i=0;i<nData.length;i++) nData[i]=Math.random()*2-1;
+    const nDat=nBuf.getChannelData(0);
+    for(let i=0;i<nDat.length;i++) nDat[i]=Math.random()*2-1;
     const ns=c.createBufferSource(); ns.buffer=nBuf; ns.loop=true;
-    const nf=c.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=380; nf.Q.value=0.2;
-    const ng=c.createGain(); ng.gain.value=0.022;
+    const nf=c.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=340; nf.Q.value=0.12;
+    const ng=c.createGain(); ng.gain.value=0.007;
     ns.connect(nf); nf.connect(ng); ng.connect(ambGain);
     ns.start(); ambOscs.push(ns);
 
-    // Deep root drone — A2 + E2 (fifth) very quiet
-    [[110,0.045],[82.41,0.028],[55,0.022],[164.81,0.018]].forEach(([f,v])=>{
-      const o=c.createOscillator(), g=c.createGain();
-      o.type='sine'; o.frequency.value=f; g.gain.value=v;
-      o.connect(g); g.connect(ambGain); o.start(); ambOscs.push(o);
-    });
+    // Tempo
+    const beat=60/54; // ~1.111s per quarter note
 
-    // Very slow breathing LFO on master gain
-    const lfo=c.createOscillator(), lfg=c.createGain();
-    lfo.type='sine'; lfo.frequency.value=0.055; lfg.gain.value=0.006;
-    lfo.connect(lfg); lfg.connect(ambGain.gain); lfo.start(); ambOscs.push(lfo);
+    // ── Gymnopédie No. 1 melody (right hand) ──
+    // [frequency_hz, duration_in_quarter_beats]
+    const mel=[
+      // Theme A — bars 1-8
+      [392.00,2],[440.00,1],  // G4 A4
+      [493.88,2],[440.00,1],  // B4 A4
+      [392.00,3],             // G4
+      [392.00,2],[440.00,1],  // G4 A4
+      [493.88,2],[440.00,1],  // B4 A4
+      [392.00,3],             // G4
+      // Theme A' — bars 9-16
+      [587.33,2],[493.88,1],  // D5 B4
+      [440.00,2],[392.00,1],  // A4 G4
+      [369.99,3],             // F#4
+      [369.99,3],             // F#4
+      [329.63,2],[369.99,1],  // E4 F#4
+      [392.00,2],[440.00,1],  // G4 A4
+      [493.88,3],             // B4
+      [493.88,3],             // B4
+      // Repeat A — bars 17-22
+      [392.00,2],[440.00,1],
+      [493.88,2],[440.00,1],
+      [392.00,3],
+      [392.00,2],[440.00,1],
+      [493.88,2],[440.00,1],
+      [392.00,3],
+      // Theme B — bars 23-32
+      [659.25,2],[587.33,1],  // E5 D5
+      [493.88,2],[440.00,1],  // B4 A4
+      [392.00,3],             // G4
+      [493.88,2],[440.00,1],  // B4 A4
+      [392.00,2],[369.99,1],  // G4 F#4
+      [329.63,3],             // E4
+      [329.63,3],             // E4
+      [293.66,2],[329.63,1],  // D4 E4
+      [369.99,2],[440.00,1],  // F#4 A4
+      [493.88,3],             // B4
+      [493.88,3],             // B4
+    ];
 
-    // Pentatonic bell melody — C major pentatonic (C D E G A), multiple octaves
-    const scale=[261.63,293.66,329.63,392,440,523.25,587.33,659.25,784,880,1046.5];
-    function bell(){
-      if(!ambPlaying) return;
-      const freq=scale[Math.floor(Math.random()*scale.length)];
-      const now=c.currentTime;
-      // Fundamental + 2nd harmonic (softer) — piano-bell tone shape
-      [[1,0.11,3.2],[2,0.045,1.8],[3,0.018,1.1]].forEach(([harm,vol,dur])=>{
+    // Left-hand chord accompaniment (one per bar = 3 beats)
+    const chords=[
+      [98.00,246.94,293.66],  // G2-B3-D3  G major
+      [73.42,146.83,220.00],  // D2-D3-A3  D5
+      [82.41,164.81,246.94],  // E2-E3-B3  E minor
+      [73.42,146.83,196.00],  // D2-D3-G3  G/D
+      [65.41,130.81,196.00],  // C2-C3-G3  C major
+      [73.42,110.00,220.00],  // D2-A2-A3  D
+      [82.41,164.81,220.00],  // E2-E3-A3  A/E
+      [73.42,146.83,246.94],  // D2-D3-B3  Bm/D
+    ];
+
+    // Piano note: fast attack, natural exponential decay (4 harmonics)
+    function noteOn(freq, t, dur){
+      const decay=Math.min(dur*0.9+0.5, dur+1.4);
+      [[1,0.052],[2,0.020],[3,0.008],[4,0.003]].forEach(([h,v])=>{
         const o=c.createOscillator(), g=c.createGain();
-        o.type='sine'; o.frequency.value=freq*harm;
-        g.gain.setValueAtTime(0,now);
-        g.gain.linearRampToValueAtTime(vol,now+0.012);
-        g.gain.exponentialRampToValueAtTime(0.0001,now+dur);
+        o.type='sine'; o.frequency.value=freq*h;
+        g.gain.setValueAtTime(0,t);
+        g.gain.linearRampToValueAtTime(v,t+0.005);
+        g.gain.exponentialRampToValueAtTime(v*0.38,t+0.09);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+decay);
         o.connect(g); g.connect(ambGain);
-        o.start(now); o.stop(now+dur+0.05);
+        o.start(t); o.stop(t+decay+0.06);
       });
-      ambBellTimer=setTimeout(bell, 1600+Math.random()*3000);
     }
-    ambBellTimer=setTimeout(bell, 900);
+
+    // Soft left-hand chord (sine, slow attack, sustained)
+    function chordOn(freqs, t, dur){
+      freqs.forEach(freq=>{
+        const o=c.createOscillator(), g=c.createGain();
+        o.type='sine'; o.frequency.value=freq;
+        g.gain.setValueAtTime(0,t);
+        g.gain.linearRampToValueAtTime(0.016,t+0.07);
+        g.gain.exponentialRampToValueAtTime(0.009,t+dur*0.55);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+        o.connect(g); g.connect(ambGain);
+        o.start(t); o.stop(t+dur+0.06);
+      });
+    }
+
+    // Schedule one full playthrough starting at startTime, return end time
+    function schedule(startTime){
+      // Chords: one per bar (3 beats)
+      const totalBeats=mel.reduce((s,[,b])=>s+b,0);
+      const bars=Math.ceil(totalBeats/3);
+      for(let b=0;b<bars;b++) chordOn(chords[b%chords.length], startTime+b*3*beat, 3*beat);
+      // Melody
+      let t=startTime;
+      mel.forEach(([freq,beats])=>{ noteOn(freq,t,beats*beat); t+=beats*beat; });
+      return t;
+    }
+
+    // Loop: pre-schedule 4 seconds before end so there's no gap
+    let nextLoop=c.currentTime+0.8;
+    function doLoop(){
+      if(!ambPlaying) return;
+      nextLoop=schedule(nextLoop);
+      ambBellTimer=setTimeout(doLoop, Math.max(500,(nextLoop-c.currentTime-4)*1000));
+    }
+    doLoop();
   }
 
   function stopAmbient(){
