@@ -40,6 +40,16 @@ body.light{
 /* hero heading gradient: replace white (#fff) start with dark text in light mode */
 body.light .hl1 .tf-word{background:linear-gradient(135deg,var(--t1),var(--nc) 50%,var(--np));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 body.light #bg-canvas,body.light .aurora{opacity:.2}
+/* ── theme-hint tooltip ── */
+.thm-wrap{position:relative;display:inline-flex}
+.thm-hint{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--np),var(--npi));color:#fff;
+  padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;
+  white-space:nowrap;pointer-events:none;display:none;z-index:200;
+  box-shadow:0 4px 18px rgba(0,0,0,.3);animation:thm-bob 1.3s ease-in-out infinite}
+.thm-hint::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-bottom-color:var(--np)}
+@keyframes thm-bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--t);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;min-height:100vh;transition:background .4s,color .4s}
 
@@ -498,7 +508,7 @@ textarea.pa::placeholder{color:var(--t3)}
   </ul>
   <button class="nav-icon-btn" id="musicBtn" onclick="toggleMusic()" title="Play ambient music">🎵</button>
   <button class="nav-icon-btn" id="sfxBtn" onclick="toggleSoundFx()" title="Mute sound effects">🔔</button>
-  <button class="nav-icon-btn" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+  <span class="thm-wrap"><button class="nav-icon-btn" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button><span class="thm-hint" id="thmHint">✨ Try both themes!</span></span>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
 </nav>
 
@@ -2335,6 +2345,20 @@ function toggleTheme() {
     document.body.classList.add('light');
     document.getElementById('thmBtn').textContent='☀️';
   }
+  // Show theme hint to first-time visitors
+  if(!localStorage.getItem('thm-seen')){
+    const hint=document.getElementById('thmHint');
+    const btn=document.getElementById('thmBtn');
+    if(hint&&btn){
+      const show=setTimeout(()=>{ hint.style.display='block'; }, 2800);
+      const hide=setTimeout(()=>{ hint.style.display='none'; }, 14000);
+      btn.addEventListener('click',()=>{
+        localStorage.setItem('thm-seen','1');
+        hint.style.display='none';
+        clearTimeout(show); clearTimeout(hide);
+      },{once:true});
+    }
+  }
 })();
 
 // ─── SAVED JOBS (localStorage) ─────────────────────────────
@@ -3382,10 +3406,44 @@ function resetAll() {
 
   window.toggleMusic = function(){
     musicOn = !musicOn;
+    localStorage.setItem('music-pref', musicOn ? 'on' : 'off');
     const btn = document.getElementById('musicBtn');
     if (musicOn){ startAmbient(); if(btn) btn.textContent='🔊'; }
     else { stopAmbient(); if(btn) btn.textContent='🎵'; }
   };
+
+  // ── Auto-start music on first interaction (works on mobile + all browsers) ──
+  (function(){
+    if(localStorage.getItem('music-pref')==='off') return; // user explicitly turned off
+    musicOn = true;
+    const btn = document.getElementById('musicBtn');
+    if(btn) btn.textContent = '🔊';
+
+    function unlock(){
+      document.removeEventListener('click',   unlock);
+      document.removeEventListener('touchend', unlock);
+      document.removeEventListener('keydown',  unlock);
+      // Create / resume AudioContext inside the user-gesture callback (iOS requirement)
+      try {
+        if(!ctx) ctx = new AC();
+        const p = ctx.state==='suspended' ? ctx.resume() : Promise.resolve();
+        p.then(()=>{ if(musicOn&&!ambGain) startAmbient(); }).catch(()=>{});
+      } catch(e){}
+    }
+    document.addEventListener('click',    unlock, {passive:true});
+    document.addEventListener('touchend', unlock, {passive:true});
+    document.addEventListener('keydown',  unlock, {passive:true});
+
+    // Also try immediate start for desktop browsers that allow it
+    setTimeout(()=>{
+      if(musicOn&&!ambGain){
+        try{
+          if(!ctx) ctx = new AC();
+          if(ctx.state!=='suspended') startAmbient();
+        }catch(e){}
+      }
+    }, 300);
+  })();
 
   window.toggleSoundFx = function(){
     soundOn = !soundOn;
