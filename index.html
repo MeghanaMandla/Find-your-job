@@ -40,6 +40,16 @@ body.light{
 /* hero heading gradient: replace white (#fff) start with dark text in light mode */
 body.light .hl1 .tf-word{background:linear-gradient(135deg,var(--t1),var(--nc) 50%,var(--np));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 body.light #bg-canvas,body.light .aurora{opacity:.2}
+/* ── dark-mode reminder toast ── */
+#dm-toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--sf);border-radius:16px;padding:14px 22px;box-shadow:0 8px 32px rgba(0,0,0,.45);
+  font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;z-index:600;
+  opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;display:flex;align-items:center;gap:10px}
+#dm-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+#dm-toast .dm-icon{font-size:20px}
+#dm-toast button{background:linear-gradient(135deg,var(--nc),var(--np));border:none;border-radius:10px;
+  color:#fff;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;margin-left:6px;white-space:nowrap}
+
 /* ── theme-hint tooltip ── */
 .thm-wrap{position:relative;display:inline-flex}
 .thm-hint{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);
@@ -2448,6 +2458,7 @@ function toggleTheme() {
   const light = document.body.classList.toggle('light');
   document.getElementById('thmBtn').textContent = light ? '☀️' : '🌙';
   localStorage.setItem('theme', light ? 'light' : 'dark');
+  if (light) setTimeout(showDmToast, 600); // show "switch to dark" toast after brief delay
 }
 (function(){
   if(localStorage.getItem('theme')==='light'){
@@ -3565,12 +3576,12 @@ function resetAll() {
       <div class="logo-f">⚡ RESUME·AI</div>
       <p>AI-powered career intelligence — 11 free tools to land your next job faster. Upload your resume and get instant results.</p>
       <div class="footer-social">
-        <a class="soc-btn li" href="https://linkedin.com/in/meghanamandla" target="_blank" rel="noopener" title="LinkedIn">in</a>
+        <a class="soc-btn li" href="https://linkedin.com/in/meghana-mandla" target="_blank" rel="noopener" title="LinkedIn">in</a>
         <a class="soc-btn tw" href="https://x.com/MeghanaMandla" target="_blank" rel="noopener" title="Twitter / X">𝕏</a>
         <a class="soc-btn ig" href="https://instagram.com/meghanamandla" target="_blank" rel="noopener" title="Instagram">IG</a>
         <a class="soc-btn wa" href="https://wa.me/919999999999" target="_blank" rel="noopener" title="WhatsApp">WA</a>
         <a class="soc-btn gh" href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener" title="GitHub">GH</a>
-        <a class="soc-btn ml" href="mailto:kjeevanreddy2003@gmail.com" title="Email us">✉</a>
+        <a class="soc-btn ml" href="mailto:meghanamandla05@gmail.com" title="Email us">✉</a>
       </div>
     </div>
     <div class="footer-col">
@@ -3589,7 +3600,7 @@ function resetAll() {
     <div class="footer-col">
       <h4>Support</h4>
       <ul>
-        <li><a href="mailto:kjeevanreddy2003@gmail.com">📧 Email Support</a></li>
+        <li><a href="mailto:meghanamandla05@gmail.com">📧 Email Support</a></li>
         <li><a href="https://github.com/MeghanaMandla/Find-your-job/issues" target="_blank" rel="noopener">🐛 Report a Bug</a></li>
         <li><a href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener">⭐ Star on GitHub</a></li>
         <li><a href="#" onclick="openFbModal();return false">⭐ Give Feedback</a></li>
@@ -3600,11 +3611,11 @@ function resetAll() {
     <div class="footer-col">
       <h4>Connect</h4>
       <ul>
-        <li><a href="https://linkedin.com/in/meghanamandla" target="_blank" rel="noopener">🔗 LinkedIn Profile</a></li>
+        <li><a href="https://linkedin.com/in/meghana-mandla" target="_blank" rel="noopener">🔗 LinkedIn Profile</a></li>
         <li><a href="https://x.com/MeghanaMandla" target="_blank" rel="noopener">𝕏 Twitter / X</a></li>
         <li><a href="https://instagram.com/meghanamandla" target="_blank" rel="noopener">📸 Instagram</a></li>
         <li><a href="https://github.com/MeghanaMandla" target="_blank" rel="noopener">🐙 GitHub Profile</a></li>
-        <li><a href="mailto:kjeevanreddy2003@gmail.com">✉️ kjeevanreddy2003@gmail.com</a></li>
+        <li><a href="mailto:meghanamandla05@gmail.com">✉️ meghanamandla05@gmail.com</a></li>
       </ul>
     </div>
   </div>
@@ -3613,6 +3624,9 @@ function resetAll() {
     <div class="footer-status"><span class="status-dot"></span> All systems operational</div>
   </div>
 </footer>
+<!-- dark-mode reminder toast -->
+<div id="dm-toast"><span class="dm-icon">🌙</span>Dark mode looks better! <button onclick="switchToDark()">Switch to Dark</button></div>
+
 <!-- ── FLOATING ACTION BUTTONS ── -->
 <div class="float-actions">
   <button class="float-fab sup-btn" id="supFab" onclick="toggleSupPanel()" title="Customer Support">💬</button>
@@ -3622,10 +3636,10 @@ function resetAll() {
 <!-- support panel -->
 <div class="sup-panel" id="supPanel">
   <h4>How can we help?</h4>
-  <a href="mailto:kjeevanreddy2003@gmail.com"><span class="sp-ico" style="background:rgba(255,170,0,.15)">📧</span>Email Support</a>
+  <a href="mailto:meghanamandla05@gmail.com"><span class="sp-ico" style="background:rgba(255,170,0,.15)">📧</span>Email Support</a>
   <a href="https://wa.me/919999999999" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(37,211,102,.15)">💬</span>WhatsApp Chat</a>
   <a href="https://github.com/MeghanaMandla/Find-your-job/issues" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(0,255,255,.1)">🐛</span>Report a Bug</a>
-  <a href="https://linkedin.com/in/meghanamandla" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(10,102,194,.15)">🔗</span>LinkedIn</a>
+  <a href="https://linkedin.com/in/meghana-mandla" target="_blank" rel="noopener"><span class="sp-ico" style="background:rgba(10,102,194,.15)">🔗</span>LinkedIn</a>
   <button class="sp-link" onclick="openFbModal();toggleSupPanel()"><span class="sp-ico" style="background:rgba(191,0,255,.15)">⭐</span>Give Feedback</button>
 </div>
 
@@ -3649,6 +3663,22 @@ function resetAll() {
 </div>
 
 <script>
+// ── Dark-mode toast ──
+let _dmTimer=null;
+function showDmToast(){
+  const t=document.getElementById('dm-toast');
+  if(!t)return;
+  clearTimeout(_dmTimer);
+  t.classList.add('show');
+  _dmTimer=setTimeout(()=>t.classList.remove('show'),6000);
+}
+function switchToDark(){
+  document.body.classList.remove('light');
+  document.getElementById('thmBtn').textContent='🌙';
+  localStorage.setItem('theme','dark');
+  document.getElementById('dm-toast').classList.remove('show');
+}
+
 // ── Support panel ──
 function toggleSupPanel(){
   const p=document.getElementById('supPanel');
@@ -3675,7 +3705,7 @@ function fbSubmit(){
   const stars='★'.repeat(fbRating)+'☆'.repeat(5-fbRating);
   const subject=encodeURIComponent(`Resume·AI Feedback ${stars}`);
   const body=encodeURIComponent(`Rating: ${stars}\nFrom: ${name||'Anonymous'}\n\n${msg}`);
-  window.open(`mailto:kjeevanreddy2003@gmail.com?subject=${subject}&body=${body}`,'_blank');
+  window.open(`mailto:meghanamandla05@gmail.com?subject=${subject}&body=${body}`,'_blank');
   closeFbModal();
   document.getElementById('fbName').value='';
   document.getElementById('fbMsg').value='';
