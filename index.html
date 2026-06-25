@@ -40,6 +40,45 @@ body.light{
 /* hero heading gradient: replace white (#fff) start with dark text in light mode */
 body.light .hl1 .tf-word{background:linear-gradient(135deg,var(--t1),var(--nc) 50%,var(--np));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 body.light #bg-canvas,body.light .aurora{opacity:.2}
+/* ── music hint (same style as thm-hint) ── */
+.music-wrap{position:relative;display:inline-flex}
+.music-hint{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--nc),var(--ng));color:#000;
+  padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;
+  white-space:nowrap;pointer-events:none;display:none;z-index:200;
+  box-shadow:0 4px 18px rgba(0,0,0,.3);animation:thm-bob 1.3s ease-in-out infinite}
+.music-hint::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-bottom-color:var(--nc)}
+
+/* ── legal modal ── */
+.legal-ov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:none;
+  align-items:flex-start;justify-content:center;padding:40px 16px;backdrop-filter:blur(6px);overflow-y:auto}
+.legal-ov.on{display:flex}
+.legal-box{background:var(--sf);border-radius:24px;max-width:680px;width:100%;padding:40px 36px;
+  position:relative;box-shadow:0 20px 60px rgba(0,0,0,.55);margin:auto}
+.legal-box h2{font-size:20px;font-weight:800;color:var(--t);margin-bottom:4px}
+.legal-box .legal-date{font-size:11px;color:var(--t3);margin-bottom:24px;display:block}
+.legal-box h3{font-size:13px;font-weight:700;color:var(--nc);margin:20px 0 6px;text-transform:uppercase;letter-spacing:1px}
+.legal-box p,.legal-box li{font-size:13px;color:var(--t2);line-height:1.8}
+.legal-box ul{padding-left:18px;margin:6px 0}
+.legal-close{position:absolute;top:16px;right:18px;background:none;border:none;font-size:20px;color:var(--t2);cursor:pointer}
+.legal-close:hover{color:var(--t)}
+@media(max-width:600px){.legal-box{padding:28px 18px}}
+
+/* ── cookie consent banner ── */
+#cookie-banner{position:fixed;bottom:0;left:0;right:0;background:var(--sf2);
+  border-top:1px solid rgba(255,255,255,.07);padding:14px 24px;z-index:700;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 -4px 24px rgba(0,0,0,.3)}
+#cookie-banner p{font-size:12px;color:var(--t2);flex:1;min-width:200px;margin:0}
+#cookie-banner p a{color:var(--nc);text-decoration:none}
+#cookie-banner p a:hover{text-decoration:underline}
+.ck-btns{display:flex;gap:8px;flex-shrink:0}
+.ck-accept{background:linear-gradient(135deg,var(--nc),var(--np));color:#fff;border:none;
+  border-radius:10px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer}
+.ck-decline{background:var(--sf);color:var(--t2);border:none;border-radius:10px;
+  padding:7px 14px;font-size:12px;cursor:pointer}
+.ck-decline:hover{color:var(--t)}
+
 /* ── dark-mode reminder toast ── */
 #dm-toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--sf);border-radius:16px;padding:14px 22px;box-shadow:0 8px 32px rgba(0,0,0,.45);
@@ -400,7 +439,7 @@ textarea.pa::placeholder{color:var(--t3)}
 
 /* ── FOOTER ── */
 .site-footer{background:var(--sf);box-shadow:0 -4px 30px var(--sd),0 -1px 0 rgba(255,255,255,.04);margin-top:60px;padding:60px 40px 40px}
-.footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.7fr 1fr 1fr 1fr;gap:40px;align-items:start}
+.footer-inner{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 0.85fr;gap:36px;align-items:start}
 .footer-brand .logo-f{font-size:22px;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--nc),var(--np));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
 .footer-brand p{font-size:13px;color:var(--t2);line-height:1.8;max-width:280px}
 .footer-social{display:flex;gap:9px;margin-top:20px;flex-wrap:wrap}
@@ -514,7 +553,7 @@ textarea.pa::placeholder{color:var(--t3)}
   .jpag button{padding:6px 14px;font-size:12px}
   .rmstep{gap:10px}
   .rmdot{width:30px;height:30px;font-size:12px}
-  .footer-inner{grid-template-columns:1fr 1fr;gap:24px}
+  .footer-inner{grid-template-columns:1fr 1fr;gap:22px}
   .footer-brand{grid-column:1/-1}
   .footer-bottom{flex-direction:column;text-align:center}
   .site-footer{padding:40px 20px 30px}
@@ -572,7 +611,7 @@ textarea.pa::placeholder{color:var(--t3)}
     <li role="none"><a class="pn-pill" data-pn="interview" onclick="showTab('interview');closeNav()" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">Interview</span><span class="pn-label-h" aria-hidden="true">Interview</span></span></a></li>
     <li role="none"><a class="pn-pill" href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">GitHub ↗</span><span class="pn-label-h" aria-hidden="true">GitHub ↗</span></span></a></li>
   </ul>
-  <button class="nav-icon-btn" id="musicBtn" onclick="toggleMusic()" title="Play ambient music">🎵</button>
+  <span class="music-wrap"><button class="nav-icon-btn" id="musicBtn" onclick="toggleMusic()" title="Play ambient music">🎵</button><span class="music-hint" id="musicHint">🎵 Play Music!</span></span>
   <button class="nav-icon-btn" id="sfxBtn" onclick="toggleSoundFx()" title="Mute sound effects">🔔</button>
   <span class="thm-wrap"><button class="nav-icon-btn" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button><span class="thm-hint" id="thmHint">☀️ Try White Theme!</span></span>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
@@ -3618,12 +3657,43 @@ function resetAll() {
         <li><a href="mailto:meghanamandla05@gmail.com">✉️ meghanamandla05@gmail.com</a></li>
       </ul>
     </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#" onclick="openLegal('privacy');return false">🔒 Privacy Policy</a></li>
+        <li><a href="#" onclick="openLegal('terms');return false">📋 Terms of Service</a></li>
+        <li><a href="#" onclick="openLegal('cookies');return false">🍪 Cookie Policy</a></li>
+        <li><a href="#" onclick="openLegal('disclaimer');return false">⚠️ Disclaimer</a></li>
+        <li><a href="#" onclick="openLegal('ai');return false">🤖 AI Transparency</a></li>
+      </ul>
+    </div>
   </div>
   <div class="footer-bottom">
-    <p>© 2025 Resume·AI — Free &amp; Open Source. Built with ❤️ by Meghana Mandla</p>
+    <p>© 2025 Resume·AI by Meghana Mandla — Free &amp; Open Source &nbsp;·&nbsp;
+      <a href="#" onclick="openLegal('privacy');return false" style="color:var(--t3);text-decoration:none">Privacy</a> &nbsp;·&nbsp;
+      <a href="#" onclick="openLegal('terms');return false" style="color:var(--t3);text-decoration:none">Terms</a> &nbsp;·&nbsp;
+      <a href="#" onclick="openLegal('disclaimer');return false" style="color:var(--t3);text-decoration:none">Disclaimer</a>
+    </p>
     <div class="footer-status"><span class="status-dot"></span> All systems operational</div>
   </div>
 </footer>
+<!-- ── LEGAL MODALS ── -->
+<div class="legal-ov" id="legalOv" onclick="if(event.target===this)closeLegal()">
+  <div class="legal-box">
+    <button class="legal-close" onclick="closeLegal()">✕</button>
+    <div id="legalContent"></div>
+  </div>
+</div>
+
+<!-- ── COOKIE CONSENT BANNER ── -->
+<div id="cookie-banner" style="display:none">
+  <p>🍪 We use essential cookies for site functionality and local storage to save your preferences. We do not use tracking, advertising, or third-party analytics cookies. Your resume data is processed only in your browser and on Gemini API servers. <a href="#" onclick="openLegal('cookies');return false">Cookie Policy</a> · <a href="#" onclick="openLegal('privacy');return false">Privacy Policy</a></p>
+  <div class="ck-btns">
+    <button class="ck-accept" onclick="acceptCookies()">Accept</button>
+    <button class="ck-decline" onclick="declineCookies()">Decline</button>
+  </div>
+</div>
+
 <!-- dark-mode reminder toast -->
 <div id="dm-toast"><span class="dm-icon">🌙</span>Dark mode looks better! <button onclick="switchToDark()">Switch to Dark</button></div>
 
@@ -3663,6 +3733,224 @@ function resetAll() {
 </div>
 
 <script>
+// ── Music hint ──
+(function(){
+  if(localStorage.getItem('music-hint-seen')) return;
+  const hint=document.getElementById('musicHint');
+  const btn=document.getElementById('musicBtn');
+  if(!hint||!btn) return;
+  const show=setTimeout(()=>{ hint.style.display='block'; }, 4500);
+  const hide=setTimeout(()=>{ hint.style.display='none'; }, 16000);
+  btn.addEventListener('click',()=>{
+    localStorage.setItem('music-hint-seen','1');
+    hint.style.display='none';
+    clearTimeout(show); clearTimeout(hide);
+  },{once:true});
+})();
+
+// ── Cookie consent ──
+(function(){
+  if(localStorage.getItem('cookie-consent')) return;
+  setTimeout(()=>{ const b=document.getElementById('cookie-banner'); if(b) b.style.display='flex'; }, 2000);
+})();
+function acceptCookies(){
+  localStorage.setItem('cookie-consent','accepted');
+  const b=document.getElementById('cookie-banner'); if(b) b.style.display='none';
+}
+function declineCookies(){
+  localStorage.setItem('cookie-consent','declined');
+  const b=document.getElementById('cookie-banner'); if(b) b.style.display='none';
+}
+
+// ── Legal modals ──
+const LEGAL={
+  privacy:{
+    title:'Privacy Policy',
+    date:'Last updated: 25 June 2025',
+    body:`
+<h3>1. Who We Are</h3>
+<p>Resume·AI is a free, open-source career intelligence tool created by Meghana Mandla. Contact: <a href="mailto:meghanamandla05@gmail.com" style="color:var(--nc)">meghanamandla05@gmail.com</a></p>
+
+<h3>2. Information We Collect</h3>
+<p>We collect only what is necessary to provide the service:</p>
+<ul>
+  <li><strong>Resume content</strong> — the text of your PDF resume, extracted locally in your browser.</li>
+  <li><strong>Job search preferences</strong> — keywords and location you enter voluntarily.</li>
+  <li><strong>GitHub username</strong> — if you choose to enter it for profile analysis.</li>
+  <li><strong>Preferences</strong> — theme (dark/light), sound settings, stored locally in <em>your</em> browser via localStorage. Never sent to our servers.</li>
+</ul>
+
+<h3>3. How We Use Your Information</h3>
+<p>Your resume text is sent to the <strong>Google Gemini API</strong> solely to generate AI analysis results (ATS score, feedback, job matches, etc.). We do not store, log, or retain your resume on any server we own.</p>
+
+<h3>4. Third-Party Services</h3>
+<ul>
+  <li><strong>Google Gemini API</strong> — processes resume text for AI analysis. Subject to <a href="https://policies.google.com/privacy" target="_blank" style="color:var(--nc)">Google's Privacy Policy</a>.</li>
+  <li><strong>Adzuna API</strong> — provides live job listings. Subject to <a href="https://www.adzuna.co.uk/privacy" target="_blank" style="color:var(--nc)">Adzuna's Privacy Policy</a>.</li>
+  <li><strong>LanguageTool API</strong> — checks grammar. No account required; text sent anonymously.</li>
+  <li><strong>GitHub API</strong> — public profile data only, read-only.</li>
+</ul>
+
+<h3>5. Data Retention</h3>
+<p>We retain <strong>no personal data</strong> on our servers. All preferences are stored in your browser's localStorage and remain entirely under your control. Clear your browser data to erase them.</p>
+
+<h3>6. Your Rights</h3>
+<p>You have the right to access, correct, or delete any information. Since we hold no server-side data, you can exercise these rights by simply clearing your browser's localStorage. For questions, email us at <a href="mailto:meghanamandla05@gmail.com" style="color:var(--nc)">meghanamandla05@gmail.com</a>.</p>
+
+<h3>7. Children's Privacy</h3>
+<p>This service is not directed at children under 13. We do not knowingly collect information from children.</p>
+
+<h3>8. Changes to This Policy</h3>
+<p>We may update this policy. Changes will be reflected on this page with an updated date.</p>`
+  },
+  terms:{
+    title:'Terms of Service',
+    date:'Last updated: 25 June 2025',
+    body:`
+<h3>1. Acceptance of Terms</h3>
+<p>By using Resume·AI ("the Service"), you agree to these Terms of Service. If you do not agree, please do not use the Service.</p>
+
+<h3>2. Description of Service</h3>
+<p>Resume·AI provides AI-powered career tools including resume analysis, ATS scoring, job matching, cover letter generation, interview preparation, and related features. The Service is provided free of charge.</p>
+
+<h3>3. Use of the Service</h3>
+<ul>
+  <li>You must be at least 13 years old to use this Service.</li>
+  <li>You may use the Service only for lawful purposes.</li>
+  <li>You may not use the Service to upload malicious content or attempt to compromise site security.</li>
+  <li>You are responsible for the accuracy of information you provide.</li>
+</ul>
+
+<h3>4. Intellectual Property</h3>
+<p>The source code of Resume·AI is open-source (MIT License) and available on <a href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" style="color:var(--nc)">GitHub</a>. AI-generated content (resume rewrites, cover letters, etc.) is provided for your personal use; you own what you create with the tool.</p>
+
+<h3>5. Disclaimer of Warranties</h3>
+<p>The Service is provided "as is" without warranties of any kind. AI-generated analysis, job matches, and career advice are for informational purposes only and do not constitute professional career counselling. Results may be inaccurate; always apply your own judgment.</p>
+
+<h3>6. Limitation of Liability</h3>
+<p>To the fullest extent permitted by law, Meghana Mandla shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service, including but not limited to loss of employment opportunities or reliance on AI-generated advice.</p>
+
+<h3>7. Third-Party APIs</h3>
+<p>The Service uses Google Gemini, Adzuna, LanguageTool, and GitHub APIs. We are not responsible for downtime, errors, or changes in these third-party services.</p>
+
+<h3>8. Governing Law</h3>
+<p>These Terms are governed by the laws of India. Any disputes shall be subject to the jurisdiction of courts in India.</p>
+
+<h3>9. Changes</h3>
+<p>We reserve the right to modify these Terms at any time. Continued use after changes constitutes acceptance.</p>
+
+<h3>10. Contact</h3>
+<p>Questions about these Terms: <a href="mailto:meghanamandla05@gmail.com" style="color:var(--nc)">meghanamandla05@gmail.com</a></p>`
+  },
+  cookies:{
+    title:'Cookie Policy',
+    date:'Last updated: 25 June 2025',
+    body:`
+<h3>What We Use</h3>
+<p>Resume·AI uses <strong>browser localStorage</strong> (not traditional cookies) to store your preferences locally on your device. No data is sent to any server for preference storage.</p>
+
+<h3>What Is Stored Locally</h3>
+<ul>
+  <li><strong>theme</strong> — your colour theme preference (dark / light)</li>
+  <li><strong>music-pref</strong> — whether background music is on or off</li>
+  <li><strong>thm-seen</strong> — whether you've seen the theme hint</li>
+  <li><strong>music-hint-seen</strong> — whether you've seen the music hint</li>
+  <li><strong>cookie-consent</strong> — your cookie consent decision</li>
+  <li><strong>thm-seen</strong> — theme hint dismissal flag</li>
+</ul>
+
+<h3>Third-Party Cookies</h3>
+<p>We load the following external scripts which may set their own cookies or use browser storage:</p>
+<ul>
+  <li><strong>Three.js (cdnjs.cloudflare.com)</strong> — may set Cloudflare performance cookies</li>
+  <li><strong>Google Fonts / APIs</strong> — subject to Google's cookie policy</li>
+</ul>
+<p>We do not use advertising, analytics, or tracking cookies.</p>
+
+<h3>Managing Preferences</h3>
+<p>You can clear all stored preferences by opening your browser's Developer Tools → Application → Local Storage and deleting the Resume·AI entries, or by clearing all site data in your browser settings.</p>
+
+<h3>Contact</h3>
+<p>Cookie questions: <a href="mailto:meghanamandla05@gmail.com" style="color:var(--nc)">meghanamandla05@gmail.com</a></p>`
+  },
+  disclaimer:{
+    title:'Disclaimer',
+    date:'Last updated: 25 June 2025',
+    body:`
+<h3>AI-Generated Content</h3>
+<p>Resume·AI uses artificial intelligence (Google Gemini) to generate resume feedback, ATS scores, cover letters, interview questions, salary estimates, career roadmaps, and LinkedIn profile suggestions. <strong>This content is AI-generated and may be inaccurate, incomplete, or unsuitable for your specific situation.</strong></p>
+
+<h3>Not Professional Advice</h3>
+<p>Nothing on this site constitutes professional career counselling, legal advice, financial advice, or recruitment advice. Always consult a qualified professional before making significant career decisions.</p>
+
+<h3>Job Listings</h3>
+<p>Job listings are sourced from Adzuna's API in real time. We do not verify the accuracy, completeness, or legitimacy of individual job postings. Always research an employer before applying.</p>
+
+<h3>Salary Information</h3>
+<p>Salary estimates are AI-generated approximations based on publicly available market data. Actual salaries vary significantly by employer, location, experience, and negotiation. Do not rely solely on these estimates.</p>
+
+<h3>Resume Results</h3>
+<p>ATS scores and feedback are based on AI analysis and do not guarantee that your resume will pass any specific employer's actual ATS system. Different employers use different ATS platforms with different criteria.</p>
+
+<h3>External Links</h3>
+<p>We are not responsible for the content of external websites linked from this service.</p>
+
+<h3>Availability</h3>
+<p>The service is provided on a best-effort basis and may be unavailable at times due to API limits, maintenance, or technical issues. We make no uptime guarantees.</p>`
+  },
+  ai:{
+    title:'AI Transparency Notice',
+    date:'Last updated: 25 June 2025',
+    body:`
+<h3>How AI Is Used</h3>
+<p>Resume·AI uses <strong>Google Gemini</strong> (a large language model) to power the following features:</p>
+<ul>
+  <li>ATS compatibility scoring and keyword analysis</li>
+  <li>Resume section-by-section feedback</li>
+  <li>Professional resume rewriting</li>
+  <li>Personalised cover letter generation</li>
+  <li>Interview question prediction and answer suggestions</li>
+  <li>Salary market estimates</li>
+  <li>Career learning roadmap generation</li>
+  <li>LinkedIn profile headline, summary, and tips</li>
+  <li>GitHub profile analysis (when GitHub username provided)</li>
+</ul>
+
+<h3>Data Sent to AI</h3>
+<p>Your resume text (extracted from the uploaded PDF) is sent to the Gemini API to generate these results. <strong>No personally identifiable information beyond what is in your resume is shared.</strong> We do not send your name, email, or device information to AI services.</p>
+
+<h3>Limitations of AI</h3>
+<ul>
+  <li>AI responses can be factually incorrect ("hallucinations").</li>
+  <li>Scores and feedback reflect the AI model's training data, not your actual hiring outcomes.</li>
+  <li>Cover letters and rewrites should be reviewed and personalised before use.</li>
+  <li>Salary figures are estimates, not guarantees.</li>
+</ul>
+
+<h3>Human Review Recommended</h3>
+<p>We strongly recommend reviewing all AI-generated content before using it in job applications. Use these outputs as a starting point, not a final product.</p>
+
+<h3>Model Information</h3>
+<p>Primary model: <strong>Gemini 2.5 Flash</strong> (Google DeepMind). Fallback models: Gemini 1.5 Flash, Gemini 1.5 Flash-8B.</p>
+
+<h3>Contact</h3>
+<p>AI-related questions: <a href="mailto:meghanamandla05@gmail.com" style="color:var(--nc)">meghanamandla05@gmail.com</a></p>`
+  }
+};
+
+function openLegal(key){
+  const d=LEGAL[key]; if(!d)return;
+  document.getElementById('legalContent').innerHTML=
+    `<h2>${d.title}</h2><span class="legal-date">${d.date}</span>${d.body}`;
+  document.getElementById('legalOv').classList.add('on');
+  document.body.style.overflow='hidden';
+}
+function closeLegal(){
+  document.getElementById('legalOv').classList.remove('on');
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLegal(); });
+
 // ── Dark-mode toast ──
 let _dmTimer=null;
 function showDmToast(){
