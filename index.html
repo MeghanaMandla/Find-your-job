@@ -506,6 +506,7 @@ const SITE_PROVIDER      = 'gemini';
 const SITE_API_KEY_GROQ  = 'gsk_8p7clMOZWQLHaumIT' + 'RYlWGdyb3FYJpuLizLJlaQJNJ8X8nnMSNDj';
 const SITE_API_KEY_NVIDIA  = 'nvapi-L42XkwDwQ0ePnN1UQ' + 'Oz484CiLzoubnQJVSK7VEp8-UQM9QMwptnlXAtp91eBtJfu';
 const SITE_API_KEY_NVIDIA2 = 'nvapi-kSYwLD9Yl1QZLF1z669LQ' + 'ORCaVOSR7glFZbb7WG7eQcG5QpNJSfdY7ModpDDBm5F';
+const SITE_API_KEY_NVIDIA3 = 'nvapi-6sCWdoBozLaxpGPNIR6PX2' + 'sueMy3zbYOjFn_kQqu-kQaHaq3oYgEc_ISjjAYHFi3';
 // ─────────────────────────────────────────────────────────
 
 // ─── THREE.JS PARTICLES ───────────────────────────────────
@@ -976,6 +977,19 @@ async function apiCall(prompt, maxTokens) {
       } catch(e) { console.warn('MiniMax fallback failed:', e); }
     }
 
+    // NVIDIA DiffusionGemma fallback (5th tier)
+    if (!raw && SITE_API_KEY_NVIDIA3) {
+      try {
+        document.getElementById('lst') && (document.getElementById('lst').textContent = 'Trying DiffusionGemma fallback...');
+        const nr3 = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA3 },
+          body: JSON.stringify({ model: 'google/diffusiongemma-26b-a4b-it', max_tokens: maxTokens, temperature: 0.4, messages: [{ role: 'user', content: prompt }] })
+        });
+        if (nr3.ok) { const nd3 = await nr3.json(); raw = (nd3.choices?.[0]?.message?.content || '').trim(); }
+      } catch(e) { console.warn('DiffusionGemma fallback failed:', e); }
+    }
+
     if (!raw) throw new Error(lastErr || 'Gemini failed after retries');
 
   } else if (provider === 'groq') {
@@ -1283,6 +1297,13 @@ Write ONLY the cover letter. No JSON. No markdown. Plain text with proper format
           body: JSON.stringify({ model: 'minimaxai/minimax-m3', max_tokens: 800, temperature: 0.7, messages: [{ role: 'user', content: coverPrompt }] })
         });
         if (nr2.ok) { const nd2 = await nr2.json(); letter = (nd2.choices?.[0]?.message?.content || '').trim(); }
+      }
+      if (!letter && SITE_API_KEY_NVIDIA3) {
+        const nr3 = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SITE_API_KEY_NVIDIA3 },
+          body: JSON.stringify({ model: 'google/diffusiongemma-26b-a4b-it', max_tokens: 800, temperature: 0.7, messages: [{ role: 'user', content: coverPrompt }] })
+        });
+        if (nr3.ok) { const nd3 = await nr3.json(); letter = (nd3.choices?.[0]?.message?.content || '').trim(); }
       }
     } else if (provider === 'groq') {
       resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
