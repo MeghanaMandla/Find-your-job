@@ -3763,266 +3763,231 @@ function resetAll() {
 (function initAudio(){
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
-  let ctx = null, soundOn = localStorage.getItem('sfx') !== 'false';
-  let musicOn = false, ambGain = null, ambOscs = [], lastType = 0, ambBellTimer = null, ambPlaying = false;
 
+  let ctx = null;
+  let soundOn = localStorage.getItem('sfx') !== 'false';
+  let musicOn = false;
+  let masterGain = null;   // music master bus
+  let ambPlaying = false;
+  let loopTimer = null;
+  let gen = 0;             // generation counter — prevents stale stop racing a new start
+  let lastType = 0;
+
+  // Always call this before scheduling audio — creates and resumes ctx
   function getCtx(){
-    if (!ctx) ctx = new AC();
-    if (ctx.state === 'suspended') ctx.resume();
+    if(!ctx) ctx = new AC();
+    if(ctx.state === 'suspended') ctx.resume();
     return ctx;
   }
 
-  // ── Smooth click pop ──
+  // ── Click pop ──
   window.playClick = function(){
-    if (!soundOn) return;
-    try {
-      const c=getCtx(), o=c.createOscillator(), g=c.createGain();
-      o.connect(g); g.connect(c.destination); o.type='sine';
-      o.frequency.setValueAtTime(520,c.currentTime);
-      o.frequency.exponentialRampToValueAtTime(220,c.currentTime+0.09);
-      g.gain.setValueAtTime(0,c.currentTime);
-      g.gain.linearRampToValueAtTime(0.18,c.currentTime+0.004);
-      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);
-      o.start(); o.stop(c.currentTime+0.1);
-    } catch(e){}
+    if(!soundOn) return;
+    try{
+      const c=getCtx(), t=c.currentTime;
+      const o=c.createOscillator(), g=c.createGain();
+      o.type='sine';
+      o.frequency.setValueAtTime(700,t);
+      o.frequency.exponentialRampToValueAtTime(280,t+0.08);
+      g.gain.setValueAtTime(0.35,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t+0.12);
+    }catch(e){}
   };
 
-  // ── Smooth success chime — G major arpeggio (gentle) ──
+  // ── Success chime ──
   window.playSuccess = function(){
-    if (!soundOn) return;
-    try {
+    if(!soundOn) return;
+    try{
       const c=getCtx();
-      [392.00,493.88,587.33,783.99].forEach((f,i)=>{
+      [523,659,784,1047].forEach((f,i)=>{
         const o=c.createOscillator(), g=c.createGain();
-        o.connect(g); g.connect(c.destination); o.type='sine'; o.frequency.value=f;
-        const t=c.currentTime+i*0.14;
+        o.type='sine'; o.frequency.value=f;
+        const t=c.currentTime+i*0.13;
         g.gain.setValueAtTime(0,t);
-        g.gain.linearRampToValueAtTime(0.28,t+0.012);
-        g.gain.exponentialRampToValueAtTime(0.001,t+0.65);
-        o.start(t); o.stop(t+0.68);
+        g.gain.linearRampToValueAtTime(0.45,t+0.01);
+        g.gain.exponentialRampToValueAtTime(0.001,t+0.55);
+        o.connect(g); g.connect(c.destination);
+        o.start(t); o.stop(t+0.6);
       });
-    } catch(e){}
+    }catch(e){}
   };
 
-  // ── Smooth typing tick — shaped noise, low-pass filtered ──
+  // ── Typing tick ──
   window.playType = function(){
-    if (!soundOn) return;
-    const now=Date.now(); if(now-lastType<105)return; lastType=now;
-    try {
-      const c=getCtx();
-      const sz=Math.ceil(c.sampleRate*0.016);
+    if(!soundOn) return;
+    const now=Date.now(); if(now-lastType<100) return; lastType=now;
+    try{
+      const c=getCtx(), t=c.currentTime;
+      const sz=Math.ceil(c.sampleRate*0.012);
       const buf=c.createBuffer(1,sz,c.sampleRate);
       const d=buf.getChannelData(0);
       for(let i=0;i<sz;i++) d[i]=(Math.random()*2-1)*(1-i/sz);
       const src=c.createBufferSource(), g=c.createGain();
-      const flt=c.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=1400;
-      src.buffer=buf; src.connect(flt); flt.connect(g); g.connect(c.destination);
-      g.gain.setValueAtTime(0.10,c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.016);
-      src.start(); src.stop(c.currentTime+0.016);
-    } catch(e){}
+      const flt=c.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=2200;
+      src.buffer=buf; g.gain.setValueAtTime(0.18,t);
+      src.connect(flt); flt.connect(g); g.connect(c.destination);
+      src.start(t);
+      src.stop(t + 0.013);
+    }catch(e){}
   };
 
-  // ── File upload: gravitational whoosh + implosion ──
+  // ── Upload sound: whoosh + thud + shimmer ──
   window.playUpload = function(){
-    try {
-      const c=getCtx();
-      const t=c.currentTime;
-      // 1. Rising whoosh — filtered noise sweep
-      const sz=Math.ceil(c.sampleRate*0.7);
+    try{
+      const c=getCtx(), t=c.currentTime;
+      // Whoosh — noise sweep 300→4000 Hz
+      const sz=Math.ceil(c.sampleRate*0.65);
       const buf=c.createBuffer(1,sz,c.sampleRate);
       const d=buf.getChannelData(0);
-      for(let i=0;i<sz;i++) d[i]=(Math.random()*2-1);
-      const src=c.createBufferSource();
-      src.buffer=buf;
-      const bpf=c.createBiquadFilter(); bpf.type='bandpass'; bpf.Q.value=2;
-      bpf.frequency.setValueAtTime(200,t);
-      bpf.frequency.exponentialRampToValueAtTime(3200,t+0.5);
+      for(let i=0;i<sz;i++) d[i]=Math.random()*2-1;
+      const src=c.createBufferSource(); src.buffer=buf;
+      const bpf=c.createBiquadFilter(); bpf.type='bandpass'; bpf.Q.value=1.5;
+      bpf.frequency.setValueAtTime(300,t);
+      bpf.frequency.exponentialRampToValueAtTime(4000,t+0.5);
       const wg=c.createGain();
       wg.gain.setValueAtTime(0,t);
-      wg.gain.linearRampToValueAtTime(0.75,t+0.1);
-      wg.gain.exponentialRampToValueAtTime(0.001,t+0.7);
+      wg.gain.linearRampToValueAtTime(0.8,t+0.08);
+      wg.gain.exponentialRampToValueAtTime(0.001,t+0.65);
       src.connect(bpf); bpf.connect(wg); wg.connect(c.destination);
-      src.start(t); src.stop(t+0.75);
-
-      // 2. Deep gravitational thud at peak
+      src.start(t); src.stop(t+0.7);
+      // Sub-bass thud
       const sub=c.createOscillator(), sg=c.createGain();
-      sub.type='sine'; sub.frequency.setValueAtTime(80,t+0.38);
-      sub.frequency.exponentialRampToValueAtTime(20,t+0.85);
-      sg.gain.setValueAtTime(0,t+0.38);
-      sg.gain.linearRampToValueAtTime(0.85,t+0.44);
+      sub.type='sine';
+      sub.frequency.setValueAtTime(120,t+0.3);
+      sub.frequency.exponentialRampToValueAtTime(25,t+0.85);
+      sg.gain.setValueAtTime(0,t+0.3);
+      sg.gain.linearRampToValueAtTime(0.9,t+0.36);
       sg.gain.exponentialRampToValueAtTime(0.001,t+0.9);
       sub.connect(sg); sg.connect(c.destination);
-      sub.start(t+0.38); sub.stop(t+0.95);
-
-      // 3. High shimmer — confirmation sparkle
+      sub.start(t+0.3); sub.stop(t+0.95);
+      // Shimmer sparkle
       [1047,1319,1568,2093].forEach((f,i)=>{
-        const o=c.createOscillator(), g2=c.createGain();
+        const o=c.createOscillator(), g=c.createGain();
         o.type='sine'; o.frequency.value=f;
-        const st=t+0.5+i*0.07;
-        g2.gain.setValueAtTime(0,st);
-        g2.gain.linearRampToValueAtTime(0.28,st+0.01);
-        g2.gain.exponentialRampToValueAtTime(0.001,st+0.4);
-        o.connect(g2); g2.connect(c.destination);
-        o.start(st); o.stop(st+0.45);
+        const s=t+0.48+i*0.065;
+        g.gain.setValueAtTime(0,s);
+        g.gain.linearRampToValueAtTime(0.35,s+0.01);
+        g.gain.exponentialRampToValueAtTime(0.001,s+0.38);
+        o.connect(g); g.connect(c.destination);
+        o.start(s); o.stop(s+0.42);
       });
-    } catch(e){}
+    }catch(e){}
   };
 
-  // ── Gymnopédie No. 1 — Erik Satie (melody only, clean) ──
-  function startAmbient(){
-    if (ambGain) return;
-    if (!ctx) ctx = new AC();
-    if (ctx.state === 'suspended') ctx.resume();
-    const c = ctx;
-    ambPlaying = true;
+  // ── Gymnopédie No. 1 — Satie, melody only ──
+  function startMusic(){
+    if(masterGain) return; // already running
+    const c=getCtx();
+    const myGen=++gen;
+    ambPlaying=true;
 
-    // Master bus — very slow fade-in over 7s to near-inaudible background level
-    ambGain = c.createGain();
-    ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.55, c.currentTime + 4); // clearly audible
-    ambGain.connect(c.destination);
+    masterGain=c.createGain();
+    masterGain.gain.setValueAtTime(0,c.currentTime);
+    // Fast fade-in: audible within 0.8s
+    masterGain.gain.linearRampToValueAtTime(0.7,c.currentTime+0.8);
+    masterGain.connect(c.destination);
 
-    // Warm reverb — longer tail for "room" feel, heavily low-passed
-    const rvD=c.createDelay(3), rvG=c.createGain(), rvLpf=c.createBiquadFilter();
-    rvD.delayTime.value=1.4; rvG.gain.value=0.38;
-    rvLpf.type='lowpass'; rvLpf.frequency.value=1200;
-    ambGain.connect(rvD); rvD.connect(rvG); rvG.connect(rvLpf); rvLpf.connect(c.destination);
+    // Warm reverb tail
+    const rvD=c.createDelay(2), rvG=c.createGain(), rvF=c.createBiquadFilter();
+    rvD.delayTime.value=0.9; rvG.gain.value=0.22;
+    rvF.type='lowpass'; rvF.frequency.value=1800;
+    masterGain.connect(rvD); rvD.connect(rvG); rvG.connect(rvF); rvF.connect(c.destination);
 
-    const beat=60/46; // slowed to BPM 46 — more meditative, brain-calming pace
-
-    // Gymnopédie No. 1 — Theme A + A' only (confirmed notes)
+    const beat=60/46; // BPM 46 — meditative
     const mel=[
-      // Theme A — bars 1-6
-      [392.00,2],[440.00,1],  // G4  A4
-      [493.88,2],[440.00,1],  // B4  A4
-      [392.00,3],             // G4
-      [392.00,2],[440.00,1],  // G4  A4
-      [493.88,2],[440.00,1],  // B4  A4
-      [392.00,3],             // G4
-      // Theme A' — bars 7-14
-      [587.33,2],[493.88,1],  // D5  B4
-      [440.00,2],[392.00,1],  // A4  G4
-      [369.99,3],             // F#4
-      [369.99,3],             // F#4
-      [329.63,2],[369.99,1],  // E4  F#4
-      [392.00,2],[440.00,1],  // G4  A4
-      [493.88,3],             // B4
-      [493.88,3],             // B4
-      // Repeat Theme A — bars 15-20
-      [392.00,2],[440.00,1],
-      [493.88,2],[440.00,1],
-      [392.00,3],
-      [392.00,2],[440.00,1],
-      [493.88,2],[440.00,1],
-      [392.00,3],
+      [392,2],[440,1],[493.88,2],[440,1],[392,3],
+      [392,2],[440,1],[493.88,2],[440,1],[392,3],
+      [587.33,2],[493.88,1],[440,2],[392,1],[369.99,3],[369.99,3],
+      [329.63,2],[369.99,1],[392,2],[440,1],[493.88,3],[493.88,3],
+      [392,2],[440,1],[493.88,2],[440,1],[392,3],
+      [392,2],[440,1],[493.88,2],[440,1],[392,3],
     ];
 
-    // Piano note: gentle sine with long natural decay — peaceful, non-intrusive
-    function noteOn(freq, t, dur){
-      const decay=Math.min(dur*1.1+0.8, dur+2.0); // long natural tail
-      [[1, 0.55],[2, 0.15]].forEach(([h,v])=>{
+    function noteOn(freq,t,dur){
+      const decay=Math.min(dur+1.8, dur*1.4+0.5);
+      // fundamental + 2nd harmonic through master bus
+      [[1,0.7],[2,0.18]].forEach(([h,v])=>{
         const o=c.createOscillator(), g=c.createGain();
         o.type='sine'; o.frequency.value=freq*h;
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(v, t+0.010); // softer attack
-        g.gain.exponentialRampToValueAtTime(v*0.22, t+0.18);
-        g.gain.exponentialRampToValueAtTime(0.0001, t+decay);
-        o.connect(g); g.connect(ambGain);
-        o.start(t); o.stop(t+decay+0.08);
+        g.gain.setValueAtTime(0,t);
+        g.gain.linearRampToValueAtTime(v,t+0.015);
+        g.gain.exponentialRampToValueAtTime(v*0.2,t+0.2);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+decay);
+        o.connect(g); g.connect(masterGain);
+        o.start(t); o.stop(t+decay+0.05);
       });
     }
 
-    function schedule(startTime){
-      let t=startTime;
-      mel.forEach(([freq,beats])=>{ noteOn(freq,t,beats*beat); t+=beats*beat; });
+    function scheduleLoop(start){
+      let t=start;
+      mel.forEach(([f,b])=>{ noteOn(f,t,b*beat); t+=b*beat; });
       return t;
     }
 
-    let nextLoop=c.currentTime+0.6;
+    let nextStart=c.currentTime+0.4;
     function doLoop(){
-      if(!ambPlaying) return;
-      nextLoop=schedule(nextLoop);
-      ambBellTimer=setTimeout(doLoop, Math.max(500,(nextLoop-c.currentTime-4)*1000));
+      if(!ambPlaying||gen!==myGen) return; // stale generation — stop
+      nextStart=scheduleLoop(nextStart);
+      loopTimer=setTimeout(doLoop,Math.max(500,(nextStart-c.currentTime-3)*1000));
     }
     doLoop();
   }
 
-  function stopAmbient(){
-    if (!ambGain) return;
-    ambPlaying = false;
-    clearTimeout(ambBellTimer);
-    ambGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.6);
-    setTimeout(() => {
-      ambOscs.forEach(o => { try { o.stop(); } catch(e){} });
-      ambOscs = []; ambGain = null;
-    }, 1700);
+  function stopMusic(){
+    ambPlaying=false;
+    clearTimeout(loopTimer);
+    if(masterGain){
+      try{ masterGain.gain.linearRampToValueAtTime(0,ctx.currentTime+0.6); }catch(e){}
+      const g=masterGain; masterGain=null;
+      setTimeout(()=>{ try{ g.disconnect(); }catch(e){} },700);
+    }
   }
 
-  window.toggleMusic = function(){
-    musicOn = !musicOn;
-    localStorage.setItem('music-pref', musicOn ? 'on' : 'off');
-    const btn = document.getElementById('musicBtn');
-    if (musicOn){ startAmbient(); if(btn) btn.textContent='🔊'; }
-    else { stopAmbient(); if(btn) btn.textContent='🎵'; }
+  window.toggleMusic=function(){
+    musicOn=!musicOn;
+    localStorage.setItem('music-pref',musicOn?'on':'off');
+    const btn=document.getElementById('musicBtn');
+    if(musicOn){ startMusic(); if(btn) btn.textContent='🔊'; }
+    else{ stopMusic(); if(btn) btn.textContent='🎵'; }
   };
 
-  // ── Auto-start music on first interaction ──
-  // NOTE: we do NOT pre-set musicOn=true here — that caused the toggle button
-  // to turn music OFF on the first click (because it was already "true").
-  // Music starts on first interaction; button stays 🎵 until then.
+  // ── Auto-start on first interaction (browser autoplay policy) ──
+  // Do NOT pre-set musicOn — that made the button toggle it OFF on first click
   (function(){
     if(localStorage.getItem('music-pref')==='off') return;
-
-    function doStart(){
-      if(musicOn || ambGain) return; // already handled by button click
-      try{
-        if(!ctx) ctx = new AC();
-        const p = ctx.state==='suspended' ? ctx.resume() : Promise.resolve();
-        p.then(()=>{
-          musicOn = true;
-          const btn = document.getElementById('musicBtn');
-          if(btn) btn.textContent = '🔊';
-          startAmbient();
-        }).catch(()=>{});
-      } catch(e){}
+    let fired=false;
+    function tryAutoStart(){
+      if(fired||musicOn||masterGain) return;
+      fired=true;
+      musicOn=true;
+      const btn=document.getElementById('musicBtn');
+      if(btn) btn.textContent='🔊';
+      startMusic();
     }
-
-    function unlock(){
-      document.removeEventListener('click',    unlock);
-      document.removeEventListener('touchend', unlock);
-      document.removeEventListener('keydown',  unlock);
-      doStart();
-    }
-    document.addEventListener('click',    unlock, {passive:true});
-    document.addEventListener('touchend', unlock, {passive:true});
-    document.addEventListener('keydown',  unlock, {passive:true});
-
-    // Immediate start on desktop browsers that allow autoplay
-    setTimeout(()=>{
-      try{
-        if(!ctx) ctx = new AC();
-        if(ctx.state !== 'suspended') doStart();
-      }catch(e){}
-    }, 400);
+    // Fire on first any user interaction
+    document.addEventListener('click',   tryAutoStart,{once:true,passive:true});
+    document.addEventListener('touchend',tryAutoStart,{once:true,passive:true});
+    document.addEventListener('keydown', tryAutoStart,{once:true,passive:true});
   })();
 
-  window.toggleSoundFx = function(){
-    soundOn = !soundOn;
-    localStorage.setItem('sfx', soundOn);
-    const btn = document.getElementById('sfxBtn');
-    if(btn) btn.textContent = soundOn ? '🔔' : '🔕';
+  window.toggleSoundFx=function(){
+    soundOn=!soundOn;
+    localStorage.setItem('sfx',soundOn?'true':'false');
+    const btn=document.getElementById('sfxBtn');
+    if(btn) btn.textContent=soundOn?'🔔':'🔕';
   };
 
-  // Hook click sounds onto interactive elements
-  document.addEventListener('click', e => {
-    if (e.target.closest('button,a[onclick],.tbtn,.jtype,.cat-chip,.fb,.act,.rbtn,.japply,.jsave,.pn-pill,.dfmt,.jcard')) playClick();
-  }, true);
+  // Click sounds on buttons/links
+  document.addEventListener('click',e=>{
+    if(e.target.closest('button,a[onclick],.tbtn,.jtype,.cat-chip,.fb,.act,.rbtn,.japply,.jsave,.pn-pill,.dfmt,.jcard')) playClick();
+  },true);
 
-  // Hook typing sound onto text inputs
-  document.addEventListener('input', e => {
-    if (e.target.matches('textarea,input')) playType();
-  }, true);
+  // Typing sounds on inputs
+  document.addEventListener('input',e=>{
+    if(e.target.matches('textarea,input')) playType();
+  },true);
 
   // Initialise SFX button state
   const sfxBtn = document.getElementById('sfxBtn');
