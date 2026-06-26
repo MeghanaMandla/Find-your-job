@@ -2573,6 +2573,9 @@ function showTab(id) {
   // GooeyNav bubble burst on the new active tab
   const activeBtn = document.querySelector('.tbtn.on');
   if (activeBtn && window._gooeySwitch) window._gooeySwitch(activeBtn);
+  // Scroll reveal: cards inside hidden tabs were never observed — reveal them now
+  const panel = document.getElementById('tp-'+id);
+  if(panel) panel.querySelectorAll('.sr-el:not(.sr-vis)').forEach(el => el.classList.add('sr-vis'));
 }
 
 function toggleIQ(el) {
@@ -2675,6 +2678,8 @@ function renderResumePlaybook() {
   const cl   = document.getElementById('resumeChecklist');
   if(!card || !cl) return;
   card.style.display = '';
+  // Force visible — was display:none when scroll-reveal ran, so sr-vis was never added
+  card.classList.add('sr-vis');
 
   const txt = (resumeText || '').toLowerCase();
 
@@ -2783,15 +2788,19 @@ initTrueFocus();
     });
   },{threshold:0.12,rootMargin:'0px 0px -40px 0px'});
 
-  // Observe cards, sections, and key UI blocks
+  // Observe cards, sections, and key UI blocks — skip elements inside hidden tab panels
   function observe(){
     document.querySelectorAll(
       '.card,.jcard,.ccard,.salbw,.rmstep,.iqa,.fbi,.uzone,.hero,.feat,.roadmap-wrap,.feat-grid'
     ).forEach(el=>{
-      if(!el.classList.contains('sr-el')){
-        el.classList.add('sr-el');
-        io.observe(el);
+      if(el.classList.contains('sr-el')) return;
+      // If inside a hidden tab panel, reveal immediately without animation
+      if(el.closest('.tp:not(.on)')){
+        el.classList.add('sr-el','sr-vis');
+        return;
       }
+      el.classList.add('sr-el');
+      io.observe(el);
     });
   }
   observe();
