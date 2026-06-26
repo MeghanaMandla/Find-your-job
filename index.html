@@ -905,6 +905,85 @@ textarea.pa::placeholder{color:var(--t3)}
   <!-- FEEDBACK -->
   <div class="tp" id="tp-feedback">
     <div class="card"><h3><span class="ico">🔍</span>Detailed AI Feedback<span class="ln"></span></h3><div id="fblist"></div></div>
+
+    <!-- Resume Playbook -->
+    <div class="card" id="resumePlaybook" style="margin-top:16px;display:none">
+      <h3><span class="ico">📋</span>Resume Playbook<span class="ln"></span></h3>
+      <p style="font-size:12px;color:var(--t2);margin-bottom:18px">Recruiters spend only <strong style="color:var(--nc)">5–10 seconds</strong> on first scan. Here's what your resume needs.</p>
+
+      <!-- Live Checklist (filled by renderResumePlaybook()) -->
+      <div style="margin-bottom:22px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">YOUR RESUME CHECKLIST</div>
+        <div id="resumeChecklist" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+      </div>
+
+      <!-- Sections Table -->
+      <div style="margin-bottom:22px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">SECTIONS EVERY STRONG RESUME NEEDS</div>
+        <div style="display:flex;flex-direction:column;gap:0;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.07)">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:rgba(255,255,255,.025)"><span style="font-size:16px;flex-shrink:0">🧑</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Header</div><div style="font-size:11px;color:var(--t2);margin-top:1px">Full name · Phone · Email · LinkedIn · GitHub · Portfolio</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px"><span style="font-size:16px;flex-shrink:0">📝</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Professional Summary</div><div style="font-size:11px;color:var(--t2);margin-top:1px">2–4 lines: who you are, key skills, target role</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:rgba(255,255,255,.025)"><span style="font-size:16px;flex-shrink:0">⚙️</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Technical Skills</div><div style="font-size:11px;color:var(--t2);margin-top:1px">Languages · Frameworks · Databases · Cloud · DevOps tools</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px"><span style="font-size:16px;flex-shrink:0">🏗️</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Projects</div><div style="font-size:11px;color:var(--t2);margin-top:1px">3–5 projects with technologies used and measurable impact</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:rgba(255,255,255,.025)"><span style="font-size:16px;flex-shrink:0">🎓</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Education</div><div style="font-size:11px;color:var(--t2);margin-top:1px">Degree · College · Graduation year · CGPA (if strong)</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px"><span style="font-size:16px;flex-shrink:0">💼</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Experience</div><div style="font-size:11px;color:var(--t2);margin-top:1px">Internships · Freelance · Open-source · Hackathons</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:rgba(255,255,255,.025)"><span style="font-size:16px;flex-shrink:0">🏅</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Certifications</div><div style="font-size:11px;color:var(--t2);margin-top:1px">AWS · Google · Microsoft · Coursera · Cisco</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px"><span style="font-size:16px;flex-shrink:0">🏆</span><div><div style="font-size:12px;font-weight:700;color:var(--t1)">Achievements</div><div style="font-size:11px;color:var(--t2);margin-top:1px">Coding contests · Awards · Publications · Leadership</div></div></div>
+        </div>
+      </div>
+
+      <!-- Common Mistakes -->
+      <div style="margin-bottom:22px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">COMMON MISTAKES TO AVOID</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2)"><span style="color:#ff4444;flex-shrink:0">❌</span><span>Generic objective like "Looking for a challenging position…"</span></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2)"><span style="color:#ff4444;flex-shrink:0">❌</span><span>Spelling or grammar mistakes</span></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2)"><span style="color:#ff4444;flex-shrink:0">❌</span><span>Personal details: religion, marital status, photo (not needed)</span></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2)"><span style="color:#ff4444;flex-shrink:0">❌</span><span>Listing skills you cannot demonstrate in a project</span></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2)"><span style="color:#ff4444;flex-shrink:0">❌</span><span>Resume longer than 1 page (for most freshers)</span></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2)"><span style="color:#ff4444;flex-shrink:0">❌</span><span>No GitHub or portfolio links for technical roles</span></div>
+        </div>
+      </div>
+
+      <!-- Must-Have Skills -->
+      <div style="margin-bottom:22px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">MUST-HAVE FOR SOFTWARE ENGINEERING ROLES</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          <span class="chip" style="font-size:11px;padding:4px 10px">Python</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">Java / C++</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">JavaScript</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">Data Structures &amp; Algorithms</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">SQL &amp; Databases</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">Git &amp; GitHub</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">Docker</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">Kubernetes</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">CI/CD / Jenkins</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">AWS / Cloud</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">Linux</span>
+          <span class="chip" style="font-size:11px;padding:4px 10px">REST APIs</span>
+        </div>
+      </div>
+
+      <!-- Project Description Guide -->
+      <div>
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">HOW TO WRITE A STRONG PROJECT DESCRIPTION</div>
+        <div style="font-size:11px;color:var(--t2);margin-bottom:10px">Answer these 5 questions for every project:</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
+          <div style="display:flex;gap:8px;font-size:12px"><span style="color:var(--nc);font-weight:700;flex-shrink:0">1.</span><span style="color:var(--t2)">What did you build?</span></div>
+          <div style="display:flex;gap:8px;font-size:12px"><span style="color:var(--nc);font-weight:700;flex-shrink:0">2.</span><span style="color:var(--t2)">What technologies did you use?</span></div>
+          <div style="display:flex;gap:8px;font-size:12px"><span style="color:var(--nc);font-weight:700;flex-shrink:0">3.</span><span style="color:var(--t2)">What problem does it solve?</span></div>
+          <div style="display:flex;gap:8px;font-size:12px"><span style="color:var(--nc);font-weight:700;flex-shrink:0">4.</span><span style="color:var(--t2)">What was your contribution?</span></div>
+          <div style="display:flex;gap:8px;font-size:12px"><span style="color:var(--nc);font-weight:700;flex-shrink:0">5.</span><span style="color:var(--t2)">What was the result or impact?</span></div>
+        </div>
+        <div style="background:rgba(0,255,136,.06);border-left:3px solid #00ff88;border-radius:0 10px 10px 0;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;color:#00ff88;letter-spacing:1px;margin-bottom:8px">EXAMPLE — AI Resume Analyzer</div>
+          <div style="display:flex;gap:8px;font-size:12px;color:var(--t2);margin-bottom:4px"><span style="color:#00ff88;flex-shrink:0">•</span><span>Built a web application using Python, Flask, HTML, CSS, and JavaScript.</span></div>
+          <div style="display:flex;gap:8px;font-size:12px;color:var(--t2);margin-bottom:4px"><span style="color:#00ff88;flex-shrink:0">•</span><span>Integrated AI to analyze resumes and suggest targeted improvements.</span></div>
+          <div style="display:flex;gap:8px;font-size:12px;color:var(--t2);margin-bottom:4px"><span style="color:#00ff88;flex-shrink:0">•</span><span>Reduced manual resume review time by approximately 80%.</span></div>
+          <div style="display:flex;gap:8px;font-size:12px;color:var(--t2);margin-bottom:0"><span style="color:#00ff88;flex-shrink:0">•</span><span>Deployed on GitHub Pages with a fully responsive UI.</span></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- REWRITE -->
@@ -1789,6 +1868,7 @@ function renderAll(r) {
       <div><div class="fbh">${f.title||''}<span class="fbp ${pc}">${pl}</span></div><div class="fbt">${f.text||''}</div></div>
     </div>`;
   }).join('');
+  renderResumePlaybook();
 
   // Rewrite
   document.getElementById('rwb').textContent = r.rewrite || '';
@@ -2637,6 +2717,37 @@ function renderPortalButtons() {
       <span class="portal-tag">${p.tag}</span>
       <span class="portal-cta">Search →</span>
     </a>`).join('');
+}
+
+function renderResumePlaybook() {
+  const card = document.getElementById('resumePlaybook');
+  const cl   = document.getElementById('resumeChecklist');
+  if(!card || !cl) return;
+  card.style.display = '';
+
+  const txt = (resumeText || '').toLowerCase();
+
+  // Heuristic checks against raw resume text
+  const checks = [
+    { label:'Email address',       ok: /@[\w.]+\.\w+/.test(txt) },
+    { label:'Phone number',        ok: /\b\d{10}\b|\+\d{1,2}[\s\-]\d/.test(txt) },
+    { label:'LinkedIn profile',    ok: /linkedin\.com|linkedin/i.test(txt) },
+    { label:'GitHub profile',      ok: /github\.com|github/i.test(txt) },
+    { label:'Professional summary',ok: /summary|objective|profile|about me/i.test(txt) },
+    { label:'Technical skills',    ok: /skills|technologies|tech stack/i.test(txt) },
+    { label:'Projects section',    ok: /project/i.test(txt) },
+    { label:'Education section',   ok: /education|degree|b\.?tech|bachelor|college|university/i.test(txt) },
+    { label:'Experience / Internship', ok: /experience|internship|intern|worked at|freelance/i.test(txt) },
+    { label:'Certifications',      ok: /certif|aws|google cloud|azure|coursera|cisco|udemy/i.test(txt) },
+    { label:'GitHub / portfolio link', ok: /github\.com\/|portfolio|live demo/i.test(txt) },
+    { label:'No photo / personal info', ok: !/photo|marital|religion|dob|date of birth/i.test(txt) },
+  ];
+
+  cl.innerHTML = checks.map(c => `
+    <div style="display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 10px;border-radius:10px;background:${c.ok?'rgba(0,255,136,.07)':'rgba(255,68,68,.07)'}">
+      <span style="font-size:14px;flex-shrink:0">${c.ok?'✅':'❌'}</span>
+      <span style="color:${c.ok?'var(--t1)':'var(--t2)'}">${c.label}</span>
+    </div>`).join('');
 }
 
 function showToast(msg) {
