@@ -13,6 +13,7 @@
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://meghanamandla.github.io/Find-your-job/"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1083,6 +1084,9 @@ drop.addEventListener('drop', async e => { e.preventDefault(); drop.classList.re
 fi.addEventListener('change', async () => { if(fi.files[0]) await handleFile(fi.files[0]); });
 
 async function handleFile(file) {
+  // Stop falling text physics before cinematic begins
+  if (window._stopFalling) window._stopFalling();
+
   // Hide drop zone text — canvas takes over for the cinematic sequence
   const dico = document.getElementById('dico');
   const dtit = document.getElementById('dtit');
@@ -3582,6 +3586,156 @@ void main(){
     flashOp=0.4; triggerExplosion('#ff4444');
     setState('idle'); canvasMsg='';
   };
+})();
+
+// ─── FALLING TEXT DROP ZONE (Matter.js physics) ────────────────────────────
+(function initFallingText(){
+  function tryInit(){ window.Matter ? run() : setTimeout(tryInit, 80); }
+  tryInit();
+
+  function run(){
+    var M=Matter;
+    var Engine=M.Engine, Runner=M.Runner, Bodies=M.Bodies, Body=M.Body,
+        World=M.World, Mouse=M.Mouse, MouseConstraint=M.MouseConstraint;
+
+    var drop=document.getElementById('drop');
+    var dtit=document.getElementById('dtit');
+    var dsub=drop && drop.querySelector('.ds');
+    if(!drop||!dtit) return;
+
+    var HIGHLIGHT=['drop','resume','browse','drag','click'];
+    var engine=null, runner_=null, wordBodies=[], raf_=null, active=false;
+
+    // Transparent overlay — hosts word spans + captures pointer for Matter.js
+    var ov=document.createElement('div');
+    ov.style.cssText='position:absolute;inset:0;z-index:4;pointer-events:none;'+
+      'overflow:hidden;border-radius:inherit;';
+    drop.appendChild(ov);
+
+    // Prevent overlay clicks from bubbling to drop's onclick (file dialog)
+    ov.addEventListener('click',function(e){ e.stopPropagation(); });
+    // Forward HTML5 DnD so file drop still works through the overlay
+    ov.addEventListener('dragover',function(e){ e.preventDefault(); drop.classList.add('drag'); });
+    ov.addEventListener('dragleave',function(){ drop.classList.remove('drag'); });
+    ov.addEventListener('drop',function(){ drop.classList.remove('drag'); stopFalling(); });
+
+    function isHL(w){ return HIGHLIGHT.some(function(h){ return w.toLowerCase().startsWith(h); }); }
+
+    function measureWords(el){
+      if(!el) return [];
+      var cr=drop.getBoundingClientRect();
+      var words=el.textContent.split(/\s+/).filter(Boolean);
+      if(!words.length) return [];
+      var orig=el.innerHTML;
+      // Wrap each word in an inline-block span to measure its rect
+      el.innerHTML=words.map(function(w){ return '<span style="display:inline-block">'+w+'</span>'; }).join(' ');
+      var res=[].slice.call(el.querySelectorAll('span')).map(function(sp,i){
+        var r=sp.getBoundingClientRect();
+        return { word:words[i],
+          x:r.left-cr.left+r.width/2, y:r.top-cr.top+r.height/2,
+          w:Math.max(r.width,10), h:Math.max(r.height,14) };
+      });
+      el.innerHTML=orig;
+      return res;
+    }
+
+    function startFalling(){
+      if(active) return;
+      active=true;
+
+      var W=drop.clientWidth, H=drop.clientHeight;
+
+      // Measure word positions (elements are visible at this point)
+      var titleWords=measureWords(dtit);
+      var subWords=dsub ? measureWords(dsub) : [];
+
+      // Hide original text — overlay words take over
+      dtit.style.opacity='0';
+      if(dsub) dsub.style.opacity='0';
+      ov.style.pointerEvents='auto';
+
+      // Physics world
+      engine=Engine.create();
+      engine.gravity.y=0.65;
+      World.add(engine.world,[
+        Bodies.rectangle(W/2, H+25, W, 50, {isStatic:true}),   // floor
+        Bodies.rectangle(-25, H/2, 50, H, {isStatic:true}),     // left wall
+        Bodies.rectangle(W+25, H/2, 50, H, {isStatic:true}),    // right wall
+        Bodies.rectangle(W/2, -25, W, 50, {isStatic:true}),     // ceiling
+      ]);
+
+      wordBodies=[];
+      var allWords=titleWords.map(function(p){ return Object.assign({},p,{fs:'17px',fw:'700'}); })
+        .concat(subWords.map(function(p){ return Object.assign({},p,{fs:'12px',fw:'400'}); }));
+
+      allWords.forEach(function(item){
+        var word=item.word, x=item.x, y=item.y, w=item.w, h=item.h;
+        var hl=isHL(word);
+
+        var span=document.createElement('span');
+        span.textContent=word;
+        span.style.cssText='position:absolute;display:inline-block;'+
+          'width:'+w+'px;height:'+h+'px;'+
+          'font-size:'+item.fs+';font-weight:'+item.fw+';'+
+          'color:'+(hl?'#00ffff':'var(--t)')+';'+
+          (hl?'text-shadow:0 0 8px rgba(0,255,255,.75);':'')+
+          'user-select:none;pointer-events:none;transform-origin:center;'+
+          'left:'+(x-w/2)+'px;top:'+(y-h/2)+'px;';
+        ov.appendChild(span);
+
+        var body=Bodies.rectangle(x, y, w+2, h+2, {
+          restitution:0.55, friction:0.18, frictionAir:0.022,
+          render:{fillStyle:'transparent'}
+        });
+        Body.setVelocity(body, { x:(Math.random()-.5)*2, y:(Math.random()-.5)*.5 });
+        Body.setAngularVelocity(body, (Math.random()-.5)*0.04);
+        World.add(engine.world, body);
+        wordBodies.push({span:span, body:body, w:w, h:h});
+      });
+
+      // Mouse constraint (attached to overlay for correct coord mapping)
+      var mouse=Mouse.create(ov);
+      var mc=MouseConstraint.create(engine,{
+        mouse:mouse,
+        constraint:{stiffness:0.85, damping:0.1, render:{visible:false}}
+      });
+      World.add(engine.world, mc);
+
+      runner_=Runner.create();
+      Runner.run(runner_, engine);
+
+      // DOM update loop
+      (function loop(){
+        if(!active) return;
+        raf_=requestAnimationFrame(loop);
+        wordBodies.forEach(function(wb){
+          wb.span.style.left=(wb.body.position.x - wb.w/2)+'px';
+          wb.span.style.top =(wb.body.position.y - wb.h/2)+'px';
+          wb.span.style.transform='rotate('+wb.body.angle+'rad)';
+        });
+      })();
+    }
+
+    function stopFalling(){
+      if(!active) return;
+      active=false;
+      if(raf_) cancelAnimationFrame(raf_);
+      if(runner_) Runner.stop(runner_);
+      if(engine){ World.clear(engine.world); Engine.clear(engine); }
+      ov.innerHTML='';
+      ov.style.pointerEvents='none';
+      if(dtit) dtit.style.opacity='';
+      if(dsub) dsub.style.opacity='';
+      wordBodies=[]; engine=null; runner_=null; raf_=null;
+    }
+
+    drop.addEventListener('mouseenter', startFalling);
+    drop.addEventListener('mouseleave', stopFalling);
+    // Stop when file is dropped (before handleFile takes over)
+    drop.addEventListener('drop', stopFalling, {capture:true});
+
+    window._stopFalling=stopFalling;
+  }
 })();
 
 function resetAll() {
