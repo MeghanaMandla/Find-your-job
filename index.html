@@ -3441,12 +3441,16 @@ void main(){
       'overflow:hidden;border-radius:inherit;';
     drop.appendChild(ov);
 
-    // Prevent overlay clicks from bubbling to drop's onclick (file dialog)
-    ov.addEventListener('click',function(e){ e.stopPropagation(); });
+    // Clicks on overlay → open file picker
+    ov.addEventListener('click',function(e){ e.stopPropagation(); document.getElementById('fi').click(); });
     // Forward HTML5 DnD so file drop still works through the overlay
     ov.addEventListener('dragover',function(e){ e.preventDefault(); drop.classList.add('drag'); });
     ov.addEventListener('dragleave',function(){ drop.classList.remove('drag'); });
-    ov.addEventListener('drop',function(){ drop.classList.remove('drag'); stopFalling(); });
+    ov.addEventListener('drop',function(e){
+      e.preventDefault(); e.stopPropagation();
+      drop.classList.remove('drag'); stopFalling();
+      var f=e.dataTransfer&&e.dataTransfer.files[0]; if(f) handleFile(f);
+    });
 
     function isHL(w){ return HIGHLIGHT.some(function(h){ return w.toLowerCase().startsWith(h); }); }
 
