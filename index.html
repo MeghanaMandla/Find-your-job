@@ -41,15 +41,6 @@ body.light{
 /* hero heading gradient: replace white (#fff) start with dark text in light mode */
 body.light .hl1 .tf-word{background:linear-gradient(135deg,var(--t1),var(--nc) 50%,var(--np));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 body.light #bg-canvas,body.light .aurora{opacity:.2}
-/* ── music hint (same style as thm-hint) ── */
-.music-wrap{position:relative;display:inline-flex}
-.music-hint{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);
-  background:linear-gradient(135deg,var(--nc),var(--ng));color:#000;
-  padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;
-  white-space:nowrap;pointer-events:none;display:none;z-index:200;
-  box-shadow:0 4px 18px rgba(0,0,0,.3);animation:thm-bob 1.3s ease-in-out infinite}
-.music-hint::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-  border:6px solid transparent;border-bottom-color:var(--nc)}
 
 /* ── legal modal ── */
 .legal-ov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:none;
@@ -338,6 +329,9 @@ textarea.pa::placeholder{color:var(--t3)}
 .portal-name{font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .portal-tag{font-size:10px;color:var(--t3);letter-spacing:.3px}
 .portal-cta{margin-top:6px;font-size:10px;font-weight:700;color:var(--pc);letter-spacing:.5px;text-transform:uppercase}
+/* ── Scroll reveal ── */
+.sr-el{opacity:0;transform:translateY(28px);transition:opacity .55s ease,transform .55s ease}
+.sr-el.sr-vis{opacity:1;transform:translateY(0)}
 .jcard{background:var(--sf);box-shadow:var(--nm);border-radius:22px;padding:22px;transition:all .35s;position:relative;overflow:hidden;border:none}
 .jcard:hover{box-shadow:var(--nm),0 0 0 1px rgba(0,255,255,.18);transform:translateY(-4px)}
 .jcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--nc),var(--np));opacity:0;transition:opacity .3s;border-radius:3px}
@@ -643,7 +637,6 @@ textarea.pa::placeholder{color:var(--t3)}
     <li role="none"><a class="pn-pill" data-pn="interview" onclick="showTab('interview');closeNav()" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">Interview</span><span class="pn-label-h" aria-hidden="true">Interview</span></span></a></li>
     <li role="none"><a class="pn-pill" href="https://github.com/MeghanaMandla/Find-your-job" target="_blank" rel="noopener" role="menuitem"><span class="pn-circle" aria-hidden="true"></span><span class="pn-stack"><span class="pn-label">GitHub ↗</span><span class="pn-label-h" aria-hidden="true">GitHub ↗</span></span></a></li>
   </ul>
-  <span class="music-wrap"><button class="nav-icon-btn" id="musicBtn" onclick="toggleMusic()" title="Play ambient music">🎵</button><span class="music-hint" id="musicHint">🎵 Play Music!</span></span>
   <button class="nav-icon-btn" id="sfxBtn" onclick="toggleSoundFx()" title="Mute sound effects">🔔</button>
   <span class="thm-wrap"><button class="nav-icon-btn" id="thmBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button><span class="thm-hint" id="thmHint">☀️ Try White Theme!</span></span>
   <button class="nbtn" onclick="document.getElementById('fi').click()">Upload Resume</button>
@@ -2804,6 +2797,34 @@ function initTrueFocus() {
 initTrueFocus();
 renderPortalButtons();
 
+// ─── SCROLL REVEAL ─────────────────────────────────────────
+(function initScrollReveal(){
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('sr-vis');
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:0.12,rootMargin:'0px 0px -40px 0px'});
+
+  // Observe cards, sections, and key UI blocks
+  function observe(){
+    document.querySelectorAll(
+      '.card,.jcard,.ccard,.salbw,.rmstep,.iqa,.fbi,.portal-card,.uzone,.hero,.feat,.roadmap-wrap,.feat-grid'
+    ).forEach(el=>{
+      if(!el.classList.contains('sr-el')){
+        el.classList.add('sr-el');
+        io.observe(el);
+      }
+    });
+  }
+  observe();
+  // Re-observe after dynamic renders (jobs, feedback, etc.)
+  const mo = new MutationObserver(observe);
+  mo.observe(document.body,{childList:true,subtree:true});
+})();
+
 // ─── ROTATING TEXT ─────────────────────────────────────────
 (function initRotatingText() {
   const root = document.getElementById('rt-inner');
@@ -3573,10 +3594,6 @@ function resetAll() {
 
   let ctx = null;
   let soundOn = localStorage.getItem('sfx') !== 'false';
-  let musicOn = false;
-  let masterGain = null;   // music master bus
-  let ambPlaying = false;
-  let loopTimer = null;
   let gen = 0;             // generation counter — prevents stale stop racing a new start
   let lastType = 0;
   let lastClickSfx = 0;
@@ -3696,101 +3713,6 @@ function resetAll() {
     }catch(e){}
   };
 
-  // ── Gymnopédie No. 1 — Satie, melody only ──
-  function startMusic(){
-    if(masterGain) return; // already running
-    const c=getCtx();
-    const myGen=++gen;
-    ambPlaying=true;
-
-    masterGain=c.createGain();
-    masterGain.gain.setValueAtTime(0,c.currentTime);
-    // Fast fade-in: audible within 0.8s
-    masterGain.gain.linearRampToValueAtTime(0.7,c.currentTime+0.8);
-    masterGain.connect(c.destination);
-
-    // Warm reverb tail
-    const rvD=c.createDelay(2), rvG=c.createGain(), rvF=c.createBiquadFilter();
-    rvD.delayTime.value=0.9; rvG.gain.value=0.22;
-    rvF.type='lowpass'; rvF.frequency.value=1800;
-    masterGain.connect(rvD); rvD.connect(rvG); rvG.connect(rvF); rvF.connect(c.destination);
-
-    const beat=60/46; // BPM 46 — meditative
-    const mel=[
-      [392,2],[440,1],[493.88,2],[440,1],[392,3],
-      [392,2],[440,1],[493.88,2],[440,1],[392,3],
-      [587.33,2],[493.88,1],[440,2],[392,1],[369.99,3],[369.99,3],
-      [329.63,2],[369.99,1],[392,2],[440,1],[493.88,3],[493.88,3],
-      [392,2],[440,1],[493.88,2],[440,1],[392,3],
-      [392,2],[440,1],[493.88,2],[440,1],[392,3],
-    ];
-
-    function noteOn(freq,t,dur){
-      const decay=Math.min(dur+1.8, dur*1.4+0.5);
-      // fundamental + 2nd harmonic through master bus
-      [[1,0.7],[2,0.18]].forEach(([h,v])=>{
-        const o=c.createOscillator(), g=c.createGain();
-        o.type='sine'; o.frequency.value=freq*h;
-        g.gain.setValueAtTime(0,t);
-        g.gain.linearRampToValueAtTime(v,t+0.015);
-        g.gain.exponentialRampToValueAtTime(v*0.2,t+0.2);
-        g.gain.exponentialRampToValueAtTime(0.0001,t+decay);
-        o.connect(g); g.connect(masterGain);
-        o.start(t); o.stop(t+decay+0.05);
-      });
-    }
-
-    function scheduleLoop(start){
-      let t=start;
-      mel.forEach(([f,b])=>{ noteOn(f,t,b*beat); t+=b*beat; });
-      return t;
-    }
-
-    let nextStart=c.currentTime+0.06;
-    function doLoop(){
-      if(!ambPlaying||gen!==myGen) return; // stale generation — stop
-      nextStart=scheduleLoop(nextStart);
-      loopTimer=setTimeout(doLoop,Math.max(500,(nextStart-c.currentTime-3)*1000));
-    }
-    doLoop();
-  }
-
-  function stopMusic(){
-    ambPlaying=false;
-    clearTimeout(loopTimer);
-    if(masterGain){
-      try{ masterGain.gain.linearRampToValueAtTime(0,ctx.currentTime+0.6); }catch(e){}
-      const g=masterGain; masterGain=null;
-      setTimeout(()=>{ try{ g.disconnect(); }catch(e){} },700);
-    }
-  }
-
-  window.toggleMusic=function(){
-    musicOn=!musicOn;
-    localStorage.setItem('music-pref',musicOn?'on':'off');
-    const btn=document.getElementById('musicBtn');
-    if(musicOn){ startMusic(); if(btn) btn.textContent='🔊'; }
-    else{ stopMusic(); if(btn) btn.textContent='🎵'; }
-  };
-
-  // ── Auto-start on first interaction (browser autoplay policy) ──
-  // Do NOT pre-set musicOn — that made the button toggle it OFF on first click
-  (function(){
-    if(localStorage.getItem('music-pref')==='off') return;
-    let fired=false;
-    function tryAutoStart(){
-      if(fired||musicOn||masterGain) return;
-      fired=true;
-      musicOn=true;
-      const btn=document.getElementById('musicBtn');
-      if(btn) btn.textContent='🔊';
-      startMusic();
-    }
-    // Fire on first any user interaction
-    document.addEventListener('click',   tryAutoStart,{once:true,passive:true});
-    document.addEventListener('touchend',tryAutoStart,{once:true,passive:true});
-    document.addEventListener('keydown', tryAutoStart,{once:true,passive:true});
-  })();
 
   window.toggleSoundFx=function(){
     soundOn=!soundOn;
@@ -3979,20 +3901,6 @@ function resetAll() {
 </div>
 
 <script>
-// ── Music hint ──
-(function(){
-  if(localStorage.getItem('music-hint-seen')) return;
-  const hint=document.getElementById('musicHint');
-  const btn=document.getElementById('musicBtn');
-  if(!hint||!btn) return;
-  const show=setTimeout(()=>{ hint.style.display='block'; }, 4500);
-  const hide=setTimeout(()=>{ hint.style.display='none'; }, 16000);
-  btn.addEventListener('click',()=>{
-    localStorage.setItem('music-hint-seen','1');
-    hint.style.display='none';
-    clearTimeout(show); clearTimeout(hide);
-  },{once:true});
-})();
 
 // ── Cookie consent ──
 (function(){
@@ -4098,7 +4006,6 @@ const LEGAL={
 <h3>What Is Stored Locally</h3>
 <ul>
   <li><strong>theme</strong> — your colour theme preference (dark / light)</li>
-  <li><strong>music-pref</strong> — whether background music is on or off</li>
   <li><strong>thm-seen</strong> — whether you've seen the theme hint</li>
   <li><strong>music-hint-seen</strong> — whether you've seen the music hint</li>
   <li><strong>cookie-consent</strong> — your cookie consent decision</li>
