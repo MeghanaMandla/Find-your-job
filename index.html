@@ -330,6 +330,14 @@ textarea.pa::placeholder{color:var(--t3)}
 .fb{padding:6px 16px;border:none;border-radius:20px;background:var(--sf);color:var(--t2);font-size:12px;cursor:pointer;transition:all .2s;box-shadow:var(--nm-sm)}
 .fb.on,.fb:hover{color:var(--nc);box-shadow:var(--nm-in)}
 .jgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.portal-card{display:flex;flex-direction:column;gap:3px;text-decoration:none;padding:12px 13px;border-radius:16px;border:1.5px solid rgba(255,255,255,.07);background:var(--sf);transition:transform .2s,box-shadow .2s,border-color .2s;cursor:pointer;position:relative;overflow:hidden}
+.portal-card::after{content:'';position:absolute;inset:0;background:var(--pc);opacity:.08;border-radius:inherit;transition:opacity .2s;pointer-events:none}
+.portal-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.3);border-color:var(--pc)}
+.portal-card:hover::after{opacity:.16}
+.portal-icon{font-size:20px;line-height:1;margin-bottom:2px}
+.portal-name{font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.portal-tag{font-size:10px;color:var(--t3);letter-spacing:.3px}
+.portal-cta{margin-top:6px;font-size:10px;font-weight:700;color:var(--pc);letter-spacing:.5px;text-transform:uppercase}
 .jcard{background:var(--sf);box-shadow:var(--nm);border-radius:22px;padding:22px;transition:all .35s;position:relative;overflow:hidden;border:none}
 .jcard:hover{box-shadow:var(--nm),0 0 0 1px rgba(0,255,255,.18);transform:translateY(-4px)}
 .jcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--nc),var(--np));opacity:0;transition:opacity .3s;border-radius:3px}
@@ -886,13 +894,11 @@ textarea.pa::placeholder{color:var(--t3)}
       </div>
       <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
 
-      <!-- Portal quick links — secondary option -->
-      <details style="margin-top:18px">
-        <summary style="cursor:pointer;font-size:11px;letter-spacing:2px;color:var(--t3);user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
-          <span>▸</span> ALSO SEARCH ON INDIA JOB PORTALS
-        </summary>
-        <div id="portalBtns" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
-      </details>
+      <!-- Job Boards Section -->
+      <div id="portalSection" style="margin-top:24px">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:12px">SEARCH ACROSS TOP JOB BOARDS</div>
+        <div id="portalBtns" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px"></div>
+      </div>
     </div>
   </div>
 
@@ -1128,6 +1134,7 @@ async function handleFile(file) {
     // Trigger canvas success (checkmark explosion, 2.8s return-to-idle)
     if (window._bhSuccess) window._bhSuccess();
     showToast('✅ Resume extracted! ' + text.length + ' characters read.');
+    renderPortalButtons();
 
     // Restore drop zone UI after canvas success animation settles
     await new Promise(r => setTimeout(r, 1200));
@@ -2587,35 +2594,49 @@ _loadSaved();
 function renderPortalButtons() {
   const el = document.getElementById('portalBtns');
   if (!el) return;
-  const kw = document.getElementById('jsearch')?.value.trim() ||
-             (allJobs.length ? (allJobs[0]?.tags||[]).slice(0,2).join(' ') : 'software developer');
+  const raw = document.getElementById('jsearch')?.value.trim() || '';
+  const kw = raw || (resumeRoles && resumeRoles[0]) || (allJobs.length ? (allJobs[0]?.tags||[]).slice(0,2).join(' ') : 'software developer');
   const state = document.getElementById('indiaState')?.value || '';
   const city  = STATE_CITY[state] || state || 'India';
-  const q = encodeURIComponent(kw), l = encodeURIComponent(city+' India');
+  const q = encodeURIComponent(kw);
+  const l = encodeURIComponent(city + ' India');
   const ns = (state||'india').toLowerCase().replace(/\s+/g,'-');
-  const kSlug = kw.toLowerCase().replace(/\s+/g,'-');
+  const kSlug = kw.toLowerCase().replace(/\s+/g,'-').slice(0,60);
   const isIntern = currentJobType === 'internship';
+  const qi = encodeURIComponent(kw + ' intern');
+
   const portals = isIntern ? [
-    {n:'Internshala',c:'#00A5EC',url:`https://internshala.com/internships/${kSlug}-internship-in-${ns}`},
-    {n:'Unstop',     c:'#FFB300',dark:true,url:`https://unstop.com/internships?search=${q}`},
-    {n:'LinkedIn',   c:'#0A66C2',url:`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw+' intern')}&location=${l}`},
-    {n:'LetsIntern', c:'#00b388',url:`https://www.letsintern.com/internships/${kSlug}`},
-    {n:'Indeed',     c:'#2557A7',url:`https://in.indeed.com/jobs?q=${encodeURIComponent(kw+' intern')}&l=${l}`},
-    {n:'Apna',       c:'#8A2BE2',url:`https://apna.co/jobs?designation=${encodeURIComponent(kw+' intern')}`},
+    {n:'Internshala', icon:'🎓', tag:'#1 for Interns',  c:'#00A5EC', url:`https://internshala.com/internships/${kSlug}-internship-in-${ns}`},
+    {n:'LinkedIn',    icon:'💼', tag:'Global Network',   c:'#0A66C2', url:`https://www.linkedin.com/jobs/search/?keywords=${qi}&location=${l}`},
+    {n:'Indeed',      icon:'🔍', tag:'Millions of Jobs', c:'#2557A7', url:`https://in.indeed.com/jobs?q=${qi}&l=${l}`},
+    {n:'Naukri',      icon:'🚀', tag:'Top India Portal', c:'#FF7555', url:`https://www.naukri.com/${kSlug}-jobs-in-${ns}`},
+    {n:'Freshersworld',icon:'🌱',tag:'For Freshers',     c:'#22c55e', url:`https://www.freshersworld.com/jobs/search?keyword=${q}&location=${encodeURIComponent(city)}`},
+    {n:'Unstop',      icon:'🏆', tag:'Competitions too', c:'#FFB300', dark:true, url:`https://unstop.com/internships?search=${q}`},
+    {n:'Foundit',     icon:'📌', tag:'Ex-Monster India', c:'#7c3aed', url:`https://www.foundit.in/search-jobs?query=${qi}&location=${encodeURIComponent(city)}`},
+    {n:'Wellfound',   icon:'🦄', tag:'Startups & VC',   c:'#ef4444', url:`https://wellfound.com/jobs?q=${q}&location=${l}`},
+    {n:'Glassdoor',   icon:'🪟', tag:'Salary Insights',  c:'#0CAA41', url:`https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${qi}`},
+    {n:'Cutshort',    icon:'✂️', tag:'Curated Roles',    c:'#5B4FE8', url:`https://cutshort.io/jobs?q=${qi}`},
   ] : [
-    {n:'Naukri',     c:'#FF7555',url:`https://www.naukri.com/${kSlug}-jobs-in-${ns}`},
-    {n:'LinkedIn',   c:'#0A66C2',url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}`},
-    {n:'Indeed',     c:'#2557A7',url:`https://in.indeed.com/jobs?q=${q}&l=${l}`},
-    {n:'Foundit',    c:'#6600cc',url:`https://www.foundit.in/search-jobs?query=${q}&location=${encodeURIComponent(city)}`},
-    {n:'Apna',       c:'#8A2BE2',url:`https://apna.co/jobs?designation=${q}`},
-    {n:'Internshala',c:'#00A5EC',url:`https://internshala.com/jobs/${kSlug}-jobs-in-${ns}`},
-    {n:'Glassdoor',  c:'#0CAA41',url:`https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${q}`},
-    {n:'Cutshort',   c:'#5B4FE8',url:`https://cutshort.io/jobs?q=${q}`},
-    {n:'Wellfound',  c:'#222',url:`https://wellfound.com/jobs?role=${q}`},
+    {n:'Naukri',      icon:'🚀', tag:'#1 India Portal',  c:'#FF7555', url:`https://www.naukri.com/${kSlug}-jobs-in-${ns}`},
+    {n:'LinkedIn Jobs',icon:'💼',tag:'Global Network',   c:'#0A66C2', url:`https://www.linkedin.com/jobs/search/?keywords=${q}&location=${l}`},
+    {n:'Indeed',      icon:'🔍', tag:'Millions of Jobs', c:'#2557A7', url:`https://in.indeed.com/jobs?q=${q}&l=${l}`},
+    {n:'Freshersworld',icon:'🌱',tag:'For Freshers',     c:'#22c55e', url:`https://www.freshersworld.com/jobs/search?keyword=${q}&location=${encodeURIComponent(city)}`},
+    {n:'Internshala', icon:'🎓', tag:'Jobs + Interns',   c:'#00A5EC', url:`https://internshala.com/jobs/${kSlug}-jobs-in-${ns}`},
+    {n:'Instahyre',   icon:'⚡', tag:'AI-Matched Jobs',  c:'#FF4D00', url:`https://www.instahyre.com/search-jobs/?q=${q}`},
+    {n:'Cutshort',    icon:'✂️', tag:'Curated Roles',    c:'#5B4FE8', url:`https://cutshort.io/jobs?q=${q}`},
+    {n:'Wellfound',   icon:'🦄', tag:'Startups & VC',   c:'#ef4444', url:`https://wellfound.com/jobs?q=${q}&location=${l}`},
+    {n:'Foundit',     icon:'📌', tag:'Ex-Monster India', c:'#7c3aed', url:`https://www.foundit.in/search-jobs?query=${q}&location=${encodeURIComponent(city)}`},
+    {n:'Glassdoor',   icon:'🪟', tag:'Salary Insights',  c:'#0CAA41', url:`https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${q}`},
   ];
-  el.innerHTML = portals.map(p =>
-    `<a href="${p.url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;text-decoration:none;background:${p.c};color:${p.dark?'#111':'#fff'};opacity:.9;transition:opacity .2s;white-space:nowrap" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.9">${p.n}</a>`
-  ).join('');
+
+  el.innerHTML = portals.map(p => `
+    <a href="${p.url}" target="_blank" rel="noopener" class="portal-card"
+       style="--pc:${p.c}" title="Search ${p.n} for: ${kw}">
+      <span class="portal-icon">${p.icon}</span>
+      <span class="portal-name">${p.n}</span>
+      <span class="portal-tag">${p.tag}</span>
+      <span class="portal-cta">Search →</span>
+    </a>`).join('');
 }
 
 function showToast(msg) {
@@ -2687,6 +2708,7 @@ function initTrueFocus() {
 }
 
 initTrueFocus();
+renderPortalButtons();
 
 // ─── ROTATING TEXT ─────────────────────────────────────────
 (function initRotatingText() {
