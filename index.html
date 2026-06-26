@@ -776,6 +776,7 @@ textarea.pa::placeholder{color:var(--t3)}
         <button class="jtype on" onclick="setJobType('jobs',this)">💼 Jobs</button>
         <button class="jtype" onclick="setJobType('internship',this)">🎓 Internships</button>
         <button class="jtype" onclick="setJobType('fresher',this)">🎯 Fresher Jobs</button>
+        <button class="jtype" onclick="setJobType('walkin',this)">🚶 Walk-in</button>
         <button class="jtype" onclick="setJobType('remote',this)">🌐 Remote / WFH</button>
         <button class="jtype" onclick="setJobType('govt',this)">🏛️ Govt Jobs</button>
       </div>
@@ -878,6 +879,22 @@ textarea.pa::placeholder{color:var(--t3)}
         <button class="fb jsort" onclick="sortJobs('salary',this)">💰 Highest Salary</button>
       </div>
       <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
+
+      <!-- Walk-in Interview info banner -->
+      <div id="walkinBanner" style="display:none;margin-top:18px;padding:16px;border-radius:14px;background:linear-gradient(135deg,rgba(255,136,0,.1),rgba(255,68,0,.06));border:1px solid rgba(255,136,0,.25)">
+        <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px">🚶 What is a Walk-in Interview?</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:12px">Walk-in interviews let you <strong style="color:var(--t1)">show up directly</strong> without scheduling — no waiting for callbacks. Companies hold these at their office on specific dates & times. Carry printed resume + ID + documents.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <a id="walkinNaukriLink" href="#" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;color:#fff;background:#FF7555">🚀 Naukri Walk-ins</a>
+          <a id="walkinIndeedLink" href="#" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;color:#fff;background:#2557A7">🔍 Indeed Walk-ins</a>
+          <a id="walkinLinkedInLink" href="#" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;color:#fff;background:#0A66C2">💼 LinkedIn Walk-ins</a>
+          <a id="walkinGoogleLink" href="#" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;color:#fff;background:#4285F4">🔎 Google Walk-ins</a>
+        </div>
+      </div>
 
       <!-- Google Jobs banner -->
       <div id="googleJobsBanner" style="display:none;margin-top:18px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(66,133,244,.12),rgba(52,168,83,.08));border:1px solid rgba(66,133,244,.22)">
@@ -2008,7 +2025,7 @@ function applyJob(encodedUrl, title) {
 
 async function searchJobs() {
   const manualQ = document.getElementById('jsearch').value.trim();
-  const label = currentJobType === 'internship' ? 'internships' : currentJobType === 'fresher' ? 'fresher jobs' : 'jobs';
+  const label = currentJobType === 'internship' ? 'internships' : currentJobType === 'fresher' ? 'fresher jobs' : currentJobType === 'walkin' ? 'walk-in interviews' : 'jobs';
 
   // Multi-role search: when no manual query & AI roles available, search top 3 roles in parallel
   let queries;
@@ -2087,14 +2104,16 @@ function renderMoreJobsStrip() {
   const qs = kw.toLowerCase().replace(/\s+/g, '-');
   const isFresher = currentJobType === 'fresher';
   const isIntern  = currentJobType === 'internship';
-  const qf = encodeURIComponent(kw + (isFresher ? ' fresher entry level' : isIntern ? ' intern' : ''));
+  const isWalkin  = currentJobType === 'walkin';
+  const suffix = isFresher ? ' fresher entry level' : isIntern ? ' intern' : isWalkin ? ' walk in interview' : '';
+  const qf = encodeURIComponent(kw + suffix);
 
-  const gq = encodeURIComponent(kw + (isFresher?' fresher':isIntern?' internship':'') + ' jobs in ' + city);
+  const gq = encodeURIComponent(kw + (isFresher?' fresher':isIntern?' internship':isWalkin?' walk in interview':'') + ' jobs in ' + city);
   const platforms = [
     { name:'Google Jobs', color:'#4285F4', icon:'🔎',
       url:`https://www.google.com/search?q=${gq}&ibp=htl;jobs` },
     { name:'LinkedIn Jobs', color:'#0A66C2', icon:'💼',
-      url:`https://www.linkedin.com/jobs/search/?keywords=${qf}&location=${l}${isFresher||isIntern?'&f_E=1,2':''}` },
+      url:`https://www.linkedin.com/jobs/search/?keywords=${qf}&location=${l}${isFresher||isIntern||isWalkin?'&f_E=1,2':''}` },
     { name:'Naukri', color:'#FF7555', icon:'🚀',
       url:`https://www.naukri.com/${qs}-jobs${isFresher?'-for-freshers':''}-in-${(state||'india').toLowerCase().replace(/\s+/g,'-')}` },
     { name:'Indeed', color:'#2557A7', icon:'🔍',
@@ -2128,13 +2147,28 @@ function renderMoreJobsStrip() {
 
   strip.style.display = '';
 
+  // Walk-in banner
+  const wb = document.getElementById('walkinBanner');
+  if(wb){
+    wb.style.display = isWalkin ? '' : 'none';
+    if(isWalkin){
+      const wq = encodeURIComponent(kw + ' walk in interview');
+      const wl = encodeURIComponent(city);
+      const el = id => document.getElementById(id);
+      if(el('walkinNaukriLink'))  el('walkinNaukriLink').href  = `https://www.naukri.com/${qs}-walk-in-jobs-in-${(state||'india').toLowerCase().replace(/\s+/g,'-')}`;
+      if(el('walkinIndeedLink'))  el('walkinIndeedLink').href  = `https://in.indeed.com/jobs?q=${wq}&l=${wl}`;
+      if(el('walkinLinkedInLink'))el('walkinLinkedInLink').href= `https://www.linkedin.com/jobs/search/?keywords=${wq}&location=${wl}`;
+      if(el('walkinGoogleLink'))  el('walkinGoogleLink').href  = `https://www.google.com/search?q=${encodeURIComponent(kw+' walk in interview in '+city)}&ibp=htl;jobs`;
+    }
+  }
+
   // Update Google Jobs banner
   const banner = document.getElementById('googleJobsBanner');
   const gLink  = document.getElementById('googleJobsLink');
   const gLabel = document.getElementById('googleJobsLabel');
   if(banner && gLink){
     gLink.href = `https://www.google.com/search?q=${gq}&ibp=htl;jobs`;
-    if(gLabel) gLabel.textContent = `Searching "${kw}${isFresher?' fresher':isIntern?' internship':''} jobs in ${city}" — Google aggregates LinkedIn, Naukri, Indeed & more.`;
+    if(gLabel) gLabel.textContent = `Searching "${kw}${isFresher?' fresher':isIntern?' internship':isWalkin?' walk-in interview':''} jobs in ${city}" — Google aggregates LinkedIn, Naukri, Indeed & more.`;
     banner.style.display = '';
   }
 }
@@ -2189,6 +2223,7 @@ function buildSearchQuery() {
   const q    = cat ? (cat + ' ' + base) : base;
   if (currentJobType === 'internship') return q + ' internship';
   if (currentJobType === 'fresher')    return q + ' fresher entry level';
+  if (currentJobType === 'walkin')     return q + ' walk in interview';
   if (currentJobType === 'remote')     return q + ' remote work from home';
   if (currentJobType === 'govt')       return q + ' government';
   return q;
