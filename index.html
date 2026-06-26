@@ -3781,7 +3781,7 @@ function resetAll() {
       o.frequency.setValueAtTime(520,c.currentTime);
       o.frequency.exponentialRampToValueAtTime(220,c.currentTime+0.09);
       g.gain.setValueAtTime(0,c.currentTime);
-      g.gain.linearRampToValueAtTime(0.045,c.currentTime+0.004);
+      g.gain.linearRampToValueAtTime(0.18,c.currentTime+0.004);
       g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);
       o.start(); o.stop(c.currentTime+0.1);
     } catch(e){}
@@ -3797,7 +3797,7 @@ function resetAll() {
         o.connect(g); g.connect(c.destination); o.type='sine'; o.frequency.value=f;
         const t=c.currentTime+i*0.14;
         g.gain.setValueAtTime(0,t);
-        g.gain.linearRampToValueAtTime(0.07,t+0.012);
+        g.gain.linearRampToValueAtTime(0.28,t+0.012);
         g.gain.exponentialRampToValueAtTime(0.001,t+0.65);
         o.start(t); o.stop(t+0.68);
       });
@@ -3817,7 +3817,7 @@ function resetAll() {
       const src=c.createBufferSource(), g=c.createGain();
       const flt=c.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=1400;
       src.buffer=buf; src.connect(flt); flt.connect(g); g.connect(c.destination);
-      g.gain.setValueAtTime(0.028,c.currentTime);
+      g.gain.setValueAtTime(0.10,c.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.016);
       src.start(); src.stop(c.currentTime+0.016);
     } catch(e){}
@@ -3840,7 +3840,7 @@ function resetAll() {
       bpf.frequency.exponentialRampToValueAtTime(3200,t+0.5);
       const wg=c.createGain();
       wg.gain.setValueAtTime(0,t);
-      wg.gain.linearRampToValueAtTime(0.35,t+0.1);
+      wg.gain.linearRampToValueAtTime(0.75,t+0.1);
       wg.gain.exponentialRampToValueAtTime(0.001,t+0.7);
       src.connect(bpf); bpf.connect(wg); wg.connect(c.destination);
       src.start(t); src.stop(t+0.75);
@@ -3850,7 +3850,7 @@ function resetAll() {
       sub.type='sine'; sub.frequency.setValueAtTime(80,t+0.38);
       sub.frequency.exponentialRampToValueAtTime(20,t+0.85);
       sg.gain.setValueAtTime(0,t+0.38);
-      sg.gain.linearRampToValueAtTime(0.55,t+0.44);
+      sg.gain.linearRampToValueAtTime(0.85,t+0.44);
       sg.gain.exponentialRampToValueAtTime(0.001,t+0.9);
       sub.connect(sg); sg.connect(c.destination);
       sub.start(t+0.38); sub.stop(t+0.95);
@@ -3861,7 +3861,7 @@ function resetAll() {
         o.type='sine'; o.frequency.value=f;
         const st=t+0.5+i*0.07;
         g2.gain.setValueAtTime(0,st);
-        g2.gain.linearRampToValueAtTime(0.09,st+0.01);
+        g2.gain.linearRampToValueAtTime(0.28,st+0.01);
         g2.gain.exponentialRampToValueAtTime(0.001,st+0.4);
         o.connect(g2); g2.connect(c.destination);
         o.start(st); o.stop(st+0.45);
@@ -3880,7 +3880,7 @@ function resetAll() {
     // Master bus — very slow fade-in over 7s to near-inaudible background level
     ambGain = c.createGain();
     ambGain.gain.setValueAtTime(0, c.currentTime);
-    ambGain.gain.linearRampToValueAtTime(0.28, c.currentTime + 6); // calm but audible
+    ambGain.gain.linearRampToValueAtTime(0.55, c.currentTime + 4); // clearly audible
     ambGain.connect(c.destination);
 
     // Warm reverb — longer tail for "room" feel, heavily low-passed
@@ -3921,7 +3921,7 @@ function resetAll() {
     // Piano note: gentle sine with long natural decay — peaceful, non-intrusive
     function noteOn(freq, t, dur){
       const decay=Math.min(dur*1.1+0.8, dur+2.0); // long natural tail
-      [[1, 0.042],[2, 0.010]].forEach(([h,v])=>{
+      [[1, 0.55],[2, 0.15]].forEach(([h,v])=>{
         const o=c.createOscillator(), g=c.createGain();
         o.type='sine'; o.frequency.value=freq*h;
         g.gain.setValueAtTime(0, t);
@@ -3967,37 +3967,44 @@ function resetAll() {
     else { stopAmbient(); if(btn) btn.textContent='🎵'; }
   };
 
-  // ── Auto-start music on first interaction (works on mobile + all browsers) ──
+  // ── Auto-start music on first interaction ──
+  // NOTE: we do NOT pre-set musicOn=true here — that caused the toggle button
+  // to turn music OFF on the first click (because it was already "true").
+  // Music starts on first interaction; button stays 🎵 until then.
   (function(){
-    if(localStorage.getItem('music-pref')==='off') return; // user explicitly turned off
-    musicOn = true;
-    const btn = document.getElementById('musicBtn');
-    if(btn) btn.textContent = '🔊';
+    if(localStorage.getItem('music-pref')==='off') return;
 
-    function unlock(){
-      document.removeEventListener('click',   unlock);
-      document.removeEventListener('touchend', unlock);
-      document.removeEventListener('keydown',  unlock);
-      // Create / resume AudioContext inside the user-gesture callback (iOS requirement)
-      try {
+    function doStart(){
+      if(musicOn || ambGain) return; // already handled by button click
+      try{
         if(!ctx) ctx = new AC();
         const p = ctx.state==='suspended' ? ctx.resume() : Promise.resolve();
-        p.then(()=>{ if(musicOn&&!ambGain) startAmbient(); }).catch(()=>{});
+        p.then(()=>{
+          musicOn = true;
+          const btn = document.getElementById('musicBtn');
+          if(btn) btn.textContent = '🔊';
+          startAmbient();
+        }).catch(()=>{});
       } catch(e){}
+    }
+
+    function unlock(){
+      document.removeEventListener('click',    unlock);
+      document.removeEventListener('touchend', unlock);
+      document.removeEventListener('keydown',  unlock);
+      doStart();
     }
     document.addEventListener('click',    unlock, {passive:true});
     document.addEventListener('touchend', unlock, {passive:true});
     document.addEventListener('keydown',  unlock, {passive:true});
 
-    // Also try immediate start for desktop browsers that allow it
+    // Immediate start on desktop browsers that allow autoplay
     setTimeout(()=>{
-      if(musicOn&&!ambGain){
-        try{
-          if(!ctx) ctx = new AC();
-          if(ctx.state!=='suspended') startAmbient();
-        }catch(e){}
-      }
-    }, 300);
+      try{
+        if(!ctx) ctx = new AC();
+        if(ctx.state !== 'suspended') doStart();
+      }catch(e){}
+    }, 400);
   })();
 
   window.toggleSoundFx = function(){
