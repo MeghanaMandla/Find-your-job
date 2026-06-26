@@ -1169,27 +1169,19 @@ drop.addEventListener('drop', async e => { e.preventDefault(); drop.classList.re
 fi.addEventListener('change', async () => { if(fi.files[0]) await handleFile(fi.files[0]); });
 
 async function handleFile(file) {
-  // Stop falling text physics before cinematic begins
   if (window._stopFalling) window._stopFalling();
-
-  // Hide drop zone text — canvas takes over for the cinematic sequence
-  const dico = document.getElementById('dico');
-  const dtit = document.getElementById('dtit');
-  const dsub = drop.querySelector('.ds');
-  const dfmt = drop.querySelector('.dfmts');
-  [dico, dtit, dsub, dfmt].forEach(el => { if(el) el.style.transition='opacity .3s'; if(el) el.style.opacity='0'; });
-
-  // Cinematic black hole implosion (840ms → enters loading state on canvas)
-  if (window._bhImplode) window._bhImplode();
+  const prog = document.getElementById('uprg');
+  const fill = document.getElementById('uprgf');
+  prog.classList.add('on');
+  fill.style.width = '10%';
+  document.getElementById('dico').textContent = '⏳';
+  document.getElementById('dtit').textContent = 'Loading ' + file.name + '...';
   if (window.playUpload) window.playUpload();
-  await new Promise(r => setTimeout(r, 900));
-
-  if (window._bhProgress) window._bhProgress(10);
 
   try {
     let text = '';
     const ext = file.name.split('.').pop().toLowerCase();
-    if (window._bhProgress) window._bhProgress(35);
+    fill.style.width = '40%';
 
     if (ext === 'pdf') {
       showToast('📖 Reading PDF...');
@@ -1201,7 +1193,8 @@ async function handleFile(file) {
       text = await file.text();
     }
 
-    if (window._bhProgress) window._bhProgress(100);
+    fill.style.width = '100%';
+    setTimeout(() => prog.classList.remove('on'), 800);
 
     if (!text || text.length < 30) {
       throw new Error('Could not extract text from this file. Please paste your resume manually.');
@@ -1209,25 +1202,15 @@ async function handleFile(file) {
 
     resumeText = text;
     document.getElementById('pit').value = text;
-
-    // Trigger canvas success (checkmark explosion, 2.8s return-to-idle)
-    if (window._bhSuccess) window._bhSuccess();
+    document.getElementById('dico').textContent = '✅';
+    document.getElementById('dtit').textContent = '✅ ' + file.name + ' — text extracted successfully!';
     showToast('✅ Resume extracted! ' + text.length + ' characters read.');
     renderPortalButtons();
 
-    // Restore drop zone UI after canvas success animation settles
-    await new Promise(r => setTimeout(r, 1200));
-    [dico, dtit, dsub, dfmt].forEach(el => { if(el) el.style.opacity=''; });
-    dico.textContent = '✅';
-    dtit.textContent = '✅ ' + file.name + ' ready!';
-    drop.classList.add('loaded');
-
   } catch(e) {
-    if (window._bhError) window._bhError();
-    await new Promise(r => setTimeout(r, 400));
-    [dico, dtit, dsub, dfmt].forEach(el => { if(el) el.style.opacity=''; });
-    dico.textContent = '⚠️';
-    dtit.textContent = 'Could not read file — paste resume text below';
+    document.getElementById('dico').textContent = '⚠️';
+    document.getElementById('dtit').textContent = 'Could not read file — paste resume text below';
+    prog.classList.remove('on');
     showToast('⚠️ ' + e.message);
     document.getElementById('pit').placeholder = 'PDF could not be parsed.\n\nPlease PASTE your resume text here manually:\n1. Open your PDF\n2. Select All (Ctrl+A) and Copy (Ctrl+C)\n3. Paste here (Ctrl+V)\n4. Click Analyze!';
     document.getElementById('pit').focus();
@@ -3413,314 +3396,6 @@ void main(){
   });
 })();
 
-// ─── CINEMATIC BLACK HOLE DROP ZONE ────────────────────────────────────────
-(function initBlackHole() {
-  const drop = document.getElementById('drop');
-  if (!drop) return;
-
-  const cv = document.createElement('canvas');
-  cv.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:0;border-radius:24px;';
-  drop.insertBefore(cv, drop.firstChild);
-  const ctx = cv.getContext('2d');
-
-  const DPR = Math.min(window.devicePixelRatio||1, 2);
-  let W,H,cx,cy,R0,R1,R2,R3;
-
-  function resize() {
-    W=drop.clientWidth; H=drop.clientHeight;
-    cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
-    cv.style.width=W+'px'; cv.style.height=H+'px';
-    ctx.setTransform(DPR,0,0,DPR,0,0);
-    cx=W/2; cy=H/2;
-    const r=Math.min(W,H);
-    R0=r*0.046; R1=r*0.10; R2=r*0.175; R3=r*0.30;
-    initPts(); initStars();
-  }
-  // State: idle | hover | drag | imploding | loading | success | error
-  let bhState='idle', bhTs=0;
-  function setState(s){ bhState=s; bhTs=performance.now(); }
-
-  let curInt=0.35, curRotMult=1, curR1=null;
-  let progress=0, flashOp=0, successOp=0, successScale=0;
-  let canvasMsg='', canvasPct=-1;
-
-  // ── Particles ──
-  const COLS=['#00ffff','#a855f7','#ec4899','#fff','#00ff88','#7c5cfc','#60a5fa'];
-  let pts=[];
-  function mkPt(forceR){
-    const maxR=R3+Math.random()*Math.min(W,H)*0.1;
-    return { r:forceR!=null?forceR:R2+Math.random()*(maxR-R2),
-      a:Math.random()*Math.PI*2,
-      av:(0.004+Math.random()*0.01)*(Math.random()<.5?1:-1),
-      dr:0.07+Math.random()*0.2, sz:0.6+Math.random()*2.6,
-      op:0.35+Math.random()*0.65, col:COLS[Math.floor(Math.random()*COLS.length)] };
-  }
-  function initPts(){ pts=Array.from({length:140},()=>mkPt()); }
-
-  // ── Orbiting stars ──
-  let stars=[];
-  function mkStar(){ return {
-    r:R3+Math.random()*Math.min(W,H)*0.28, a:Math.random()*Math.PI*2,
-    av:0.0008+Math.random()*0.0015, sz:0.4+Math.random()*1.4,
-    op:0.2+Math.random()*0.8, col:['#fff','#aaf','#faf','#cff','#ffa'][Math.floor(Math.random()*5)] }; }
-  function initStars(){ stars=Array.from({length:50},mkStar); }
-
-  new ResizeObserver(resize).observe(drop);
-  window.addEventListener('orientationchange',()=>setTimeout(resize,200));
-  resize();
-
-  // ── Explosion & shockwave ──
-  let expl=[], ripples=[], shockwaves=[], lastRipple=0;
-  function triggerExplosion(col){
-    for(let i=0;i<72;i++){
-      const a=(Math.PI*2*i/72)+Math.random()*0.25, spd=1.8+Math.random()*5.5;
-      expl.push({x:cx,y:cy,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
-        sz:0.8+Math.random()*3,op:1,col:col||COLS[i%COLS.length],life:0,maxLife:0.7+Math.random()*0.8});
-    }
-  }
-  function addRipple(big){ ripples.push({r:R1*0.5,maxR:big?R3*1.6:R3,op:0.85,spd:big?4.5:2.4}); }
-
-  // ── Draw loop ──
-  let lastTs=0;
-  function draw(ts){
-    requestAnimationFrame(draw);
-    const elapsed=bhTs?(ts-bhTs)/1000:0;
-    const dt=Math.min((ts-lastTs)/1000,0.05);
-    lastTs=ts;
-    if(!curR1) curR1=R1;
-
-    let tInt,tRot;
-    switch(bhState){
-      case 'idle':      tInt=0.35; tRot=0.7; break;
-      case 'hover':     tInt=0.65; tRot=1.6; break;
-      case 'drag':      tInt=1.0;  tRot=3.4; break;
-      case 'imploding': tInt=1.0;  tRot=Math.min(16,3+elapsed*18); break;
-      case 'loading':   tInt=0.68; tRot=1.9; break;
-      case 'success':   tInt=elapsed<0.4?1.0:0.2; tRot=0.5; break;
-      default:          tInt=0.35; tRot=0.7;
-    }
-    curInt     +=(tInt-curInt)*0.08;
-    curRotMult +=(tRot-curRotMult)*0.07;
-
-    const tR1=(bhState==='drag'||bhState==='imploding')?R1*1.35:R1;
-    curR1+=(tR1-curR1)*0.09;
-    const rot=ts*0.001*curRotMult, op=curInt;
-
-    // Motion blur base
-    ctx.globalAlpha=1;
-    ctx.fillStyle=`rgba(0,0,0,${bhState==='idle'?0.25:0.18})`;
-    ctx.fillRect(0,0,W,H);
-
-    // 1. Nebula
-    const neb=ctx.createRadialGradient(cx,cy,R2,cx,cy,Math.min(W,H)*0.56);
-    neb.addColorStop(0, `rgba(110,40,210,${0.26*op})`);
-    neb.addColorStop(0.35,`rgba(0,150,255,${0.13*op})`);
-    neb.addColorStop(0.7,`rgba(0,255,180,${0.05*op})`);
-    neb.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=neb;
-    ctx.beginPath(); ctx.arc(cx,cy,Math.min(W,H)*0.56,0,Math.PI*2); ctx.fill();
-
-    // 2. Lensing rings
-    for(let i=0;i<5;i++){
-      const rr=curR1*(1.12+i*0.32)+Math.sin(ts*0.0007+i*1.2)*3;
-      ctx.beginPath(); ctx.arc(cx,cy,rr,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(0,210,255,${(0.22-i*0.038)*op})`;
-      ctx.lineWidth=0.9; ctx.stroke();
-    }
-
-    // 3. Accretion disk — 3 rotating ring layers
-    ctx.save(); ctx.translate(cx,cy);
-    ctx.shadowColor='#00ffff'; ctx.shadowBlur=22*op;
-    for(let i=0;i<6;i++){
-      const s=rot*1.55+Math.PI/3*i;
-      ctx.beginPath(); ctx.arc(0,0,curR1*1.07,s,s+0.5);
-      ctx.strokeStyle=`rgba(0,255,255,${0.92*op})`; ctx.lineWidth=3*op; ctx.stroke();
-    }
-    ctx.shadowColor='#a855f7'; ctx.shadowBlur=16*op;
-    for(let i=0;i<5;i++){
-      const s=-rot*0.72+(Math.PI*2/5)*i;
-      ctx.beginPath(); ctx.arc(0,0,curR1*1.6,s,s+0.62);
-      ctx.strokeStyle=`rgba(168,85,247,${0.72*op})`; ctx.lineWidth=2.2*op; ctx.stroke();
-    }
-    ctx.shadowColor='#ec4899'; ctx.shadowBlur=10*op;
-    for(let i=0;i<4;i++){
-      const s=rot*0.26+(Math.PI*2/4)*i;
-      ctx.beginPath(); ctx.arc(0,0,R2,s,s+0.72);
-      ctx.strokeStyle=`rgba(236,72,153,${0.48*op})`; ctx.lineWidth=1.8*op; ctx.stroke();
-    }
-    ctx.shadowBlur=0; ctx.restore();
-
-    // 4. Disk radial glow
-    const dg=ctx.createRadialGradient(cx,cy,curR1,cx,cy,R2+16);
-    dg.addColorStop(0,`rgba(0,255,255,${0.75*op})`);
-    dg.addColorStop(0.5,`rgba(100,80,255,${0.22*op})`);
-    dg.addColorStop(1,'rgba(0,255,255,0)');
-    ctx.fillStyle=dg;
-    ctx.beginPath(); ctx.arc(cx,cy,R2+16,0,Math.PI*2); ctx.fill();
-
-    // 5. Orbiting stars
-    for(const s of stars){
-      s.a+=s.av*dt*curRotMult*0.45;
-      if(bhState==='imploding') s.r=Math.max(R2,s.r-(s.r-R2)*0.012);
-      const x=cx+Math.cos(s.a)*s.r, y=cy+Math.sin(s.a)*s.r;
-      ctx.globalAlpha=s.op*Math.min(op*1.5,1);
-      ctx.fillStyle=s.col; ctx.shadowColor=s.col; ctx.shadowBlur=4;
-      ctx.beginPath(); ctx.arc(x,y,s.sz,0,Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
-
-    // 6. Spiral particles
-    const pull0=bhState==='imploding'?Math.min(12,1+elapsed*14):1;
-    ctx.shadowBlur=7;
-    for(let i=0;i<pts.length;i++){
-      const p=pts[i];
-      const pull=(R2/Math.max(p.r,curR1))*pull0;
-      p.a+=p.av*pull*curRotMult*0.55;
-      p.r-=p.dr*pull;
-      if(p.r<curR1){ pts[i]=mkPt(R3+Math.random()*Math.min(W,H)*0.07); continue; }
-      const fade=Math.min(1,(p.r-curR1)/(R2-curR1+1));
-      ctx.globalAlpha=op*p.op*fade;
-      ctx.shadowColor=p.col; ctx.fillStyle=p.col;
-      ctx.beginPath(); ctx.arc(cx+Math.cos(p.a)*p.r,cy+Math.sin(p.a)*p.r,p.sz*(0.3+0.7*fade),0,Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
-
-    // 7. Drag ripples
-    if(bhState==='drag'){ const now=performance.now(); if(now-lastRipple>700){addRipple(false);lastRipple=now;} }
-    ripples=ripples.filter(r=>{
-      r.r+=r.spd; r.op-=0.014;
-      if(r.op<=0) return false;
-      ctx.beginPath(); ctx.arc(cx,cy,r.r,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(0,255,255,${r.op*op})`; ctx.lineWidth=1.6; ctx.stroke();
-      return true;
-    });
-
-    // 8. Singularity
-    const sg=ctx.createRadialGradient(cx,cy,R0*0.15,cx,cy,curR1);
-    sg.addColorStop(0,'rgba(0,0,0,1)'); sg.addColorStop(0.88,'rgba(0,0,0,1)');
-    sg.addColorStop(1,'rgba(0,0,0,0.22)');
-    ctx.fillStyle=sg;
-    ctx.beginPath(); ctx.arc(cx,cy,curR1,0,Math.PI*2); ctx.fill();
-    const core=ctx.createRadialGradient(cx,cy,0,cx,cy,R0);
-    core.addColorStop(0,`rgba(180,120,255,${0.65*op})`);
-    core.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=core;
-    ctx.beginPath(); ctx.arc(cx,cy,R0,0,Math.PI*2); ctx.fill();
-
-    // 9. Progress ring
-    if(bhState==='loading'){
-      const pr=curR1*1.72;
-      ctx.beginPath(); ctx.arc(cx,cy,pr,-Math.PI/2,Math.PI*2-Math.PI/2);
-      ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=5; ctx.stroke();
-      if(progress>0){
-        ctx.beginPath(); ctx.arc(cx,cy,pr,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);
-        ctx.strokeStyle='#00ffff'; ctx.lineWidth=5;
-        ctx.shadowColor='#00ffff'; ctx.shadowBlur=14;
-        ctx.lineCap='round'; ctx.stroke();
-        ctx.shadowBlur=0; ctx.lineCap='butt';
-      }
-    }
-
-    // 10. Shockwaves
-    shockwaves=shockwaves.filter(s=>{
-      s.r+=6.5; s.op-=0.024;
-      if(s.op<=0) return false;
-      ctx.beginPath(); ctx.arc(cx,cy,s.r,0,Math.PI*2);
-      ctx.strokeStyle=`rgba(255,255,255,${s.op})`; ctx.lineWidth=3; ctx.stroke();
-      return true;
-    });
-
-    // 11. Explosion particles
-    expl=expl.filter(p=>{
-      p.life+=dt; if(p.life>=p.maxLife) return false;
-      const t=p.life/p.maxLife;
-      p.x+=p.vx*(1-t*0.5); p.y+=p.vy*(1-t*0.5);
-      ctx.globalAlpha=(1-t)*p.op;
-      ctx.fillStyle=p.col; ctx.shadowColor=p.col; ctx.shadowBlur=7;
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.sz*(1-t*0.5),0,Math.PI*2); ctx.fill();
-      return true;
-    });
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
-
-    // 12. Flash
-    if(flashOp>0){
-      const fg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.min(W,H)*0.65);
-      fg.addColorStop(0,'rgba(255,255,255,1)'); fg.addColorStop(0.3,'rgba(140,60,255,0.7)'); fg.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.globalAlpha=flashOp; ctx.fillStyle=fg; ctx.fillRect(0,0,W,H);
-      ctx.globalAlpha=1; flashOp=Math.max(0,flashOp-0.055);
-    }
-
-    // 13. Success checkmark
-    if(bhState==='success'){
-      successOp=Math.min(1,successOp+dt*2.2);
-      successScale=Math.min(1,successScale+dt*2.8);
-      ctx.save(); ctx.translate(cx,cy); ctx.scale(successScale,successScale);
-      ctx.globalAlpha=successOp;
-      const sr=R2*1.05;
-      ctx.beginPath(); ctx.arc(0,0,sr,0,Math.PI*2);
-      ctx.fillStyle='rgba(0,255,136,0.12)';
-      ctx.shadowColor='#00ff88'; ctx.shadowBlur=28;
-      ctx.strokeStyle='#00ff88'; ctx.lineWidth=3; ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-sr*0.38,-sr*0.05); ctx.lineTo(-sr*0.08,sr*0.32); ctx.lineTo(sr*0.44,-sr*0.28);
-      ctx.strokeStyle='#00ff88'; ctx.lineWidth=4.5;
-      ctx.lineCap='round'; ctx.lineJoin='round'; ctx.shadowBlur=18; ctx.stroke();
-      ctx.shadowBlur=0; ctx.restore(); ctx.globalAlpha=1;
-    }
-
-    // 14. Status text overlay
-    if(canvasMsg&&(bhState==='loading'||bhState==='success')){
-      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillStyle=bhState==='success'?'#00ff88':'rgba(0,235,255,0.95)';
-      ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=10;
-      ctx.font='600 13px system-ui,sans-serif';
-      ctx.fillText(canvasMsg,cx,cy+R2*1.65);
-      if(canvasPct>=0&&bhState==='loading'){
-        ctx.font='800 20px system-ui,sans-serif';
-        ctx.fillText(Math.round(canvasPct)+'%',cx,cy+R2*2.05);
-      }
-      ctx.shadowBlur=0; ctx.restore();
-    }
-  }
-  requestAnimationFrame(draw);
-
-  // Hover / drag state
-  new MutationObserver(()=>{
-    const d=drop.classList.contains('drag');
-    if(d&&(bhState==='idle'||bhState==='hover')) setState('drag');
-    else if(!d&&bhState==='drag') setState('idle');
-  }).observe(drop,{attributes:true,attributeFilter:['class']});
-  drop.addEventListener('mouseenter',()=>{ if(bhState==='idle') setState('hover'); });
-  drop.addEventListener('mouseleave',()=>{ if(bhState==='hover') setState('idle'); });
-
-  // ── Public API ──
-  window._bhImplode=function(){
-    setState('imploding');
-    setTimeout(()=>{ addRipple(true); addRipple(true); },280);
-    setTimeout(()=>{ flashOp=0.82; shockwaves.push({r:R1,op:1},{r:R1*2,op:0.7}); },560);
-    setTimeout(()=>{
-      triggerExplosion(); setState('loading');
-      progress=0; canvasMsg='Uploading resume…'; canvasPct=0;
-    },840);
-  };
-
-  window._bhProgress=function(pct){ progress=pct/100; canvasPct=pct; };
-
-  window._bhSuccess=function(){
-    progress=1; flashOp=0.6;
-    shockwaves.push({r:R1,op:1},{r:R1*2.2,op:0.75});
-    triggerExplosion('#00ff88');
-    setState('success'); successOp=0; successScale=0;
-    canvasMsg='Resume Uploaded!'; canvasPct=-1;
-    setTimeout(()=>{ setState('idle'); canvasMsg=''; successOp=0; successScale=0; },2800);
-  };
-
-  window._bhError=function(){
-    flashOp=0.4; triggerExplosion('#ff4444');
-    setState('idle'); canvasMsg='';
-  };
-})();
-
 // ─── FALLING TEXT DROP ZONE (Matter.js physics) ────────────────────────────
 (function initFallingText(){
   function tryInit(){ window.Matter ? run() : setTimeout(tryInit, 80); }
@@ -3883,7 +3558,6 @@ function resetAll() {
   dico.textContent = '📄';
   dtit.textContent = 'Drop your resume here';
   drop.classList.remove('sucked','loaded');
-  if(window._bhError) window._bhError();
   document.getElementById('gh-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Enter your GitHub username or URL above to analyze your profile.</p>';
   document.getElementById('grammar-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to get a grammar and writing quality check.</p>';
   document.getElementById('linkedin-content').innerHTML = '<p style="color:var(--t2);font-size:14px">Upload and analyze your resume to generate optimized LinkedIn profile content.</p>';
