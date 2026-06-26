@@ -879,6 +879,20 @@ textarea.pa::placeholder{color:var(--t3)}
       </div>
       <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
 
+      <!-- Google Jobs banner -->
+      <div id="googleJobsBanner" style="display:none;margin-top:18px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(66,133,244,.12),rgba(52,168,83,.08));border:1px solid rgba(66,133,244,.22)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:2px">🔎 Also search Google Jobs</div>
+            <div style="font-size:11px;color:var(--t2)" id="googleJobsLabel">Google aggregates listings from LinkedIn, Naukri, Indeed &amp; more — all in one place.</div>
+          </div>
+          <a id="googleJobsLink" href="#" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:22px;font-size:13px;font-weight:700;text-decoration:none;color:#fff;background:#4285F4;white-space:nowrap;flex-shrink:0">
+            Open Google Jobs ↗
+          </a>
+        </div>
+      </div>
+
       <!-- More Jobs strip — platforms pre-filled with live search keyword -->
       <div id="moreJobsStrip" style="margin-top:20px;display:none">
         <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">FIND MORE JOBS ON</div>
@@ -2075,7 +2089,10 @@ function renderMoreJobsStrip() {
   const isIntern  = currentJobType === 'internship';
   const qf = encodeURIComponent(kw + (isFresher ? ' fresher entry level' : isIntern ? ' intern' : ''));
 
+  const gq = encodeURIComponent(kw + (isFresher?' fresher':isIntern?' internship':'') + ' jobs in ' + city);
   const platforms = [
+    { name:'Google Jobs', color:'#4285F4', icon:'🔎',
+      url:`https://www.google.com/search?q=${gq}&ibp=htl;jobs` },
     { name:'LinkedIn Jobs', color:'#0A66C2', icon:'💼',
       url:`https://www.linkedin.com/jobs/search/?keywords=${qf}&location=${l}${isFresher||isIntern?'&f_E=1,2':''}` },
     { name:'Naukri', color:'#FF7555', icon:'🚀',
@@ -2110,6 +2127,16 @@ function renderMoreJobsStrip() {
   ).join('');
 
   strip.style.display = '';
+
+  // Update Google Jobs banner
+  const banner = document.getElementById('googleJobsBanner');
+  const gLink  = document.getElementById('googleJobsLink');
+  const gLabel = document.getElementById('googleJobsLabel');
+  if(banner && gLink){
+    gLink.href = `https://www.google.com/search?q=${gq}&ibp=htl;jobs`;
+    if(gLabel) gLabel.textContent = `Searching "${kw}${isFresher?' fresher':isIntern?' internship':''} jobs in ${city}" — Google aggregates LinkedIn, Naukri, Indeed & more.`;
+    banner.style.display = '';
+  }
 }
 
 function applySortAndRender() {
