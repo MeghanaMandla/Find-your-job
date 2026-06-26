@@ -3436,10 +3436,6 @@ void main(){
     R0=r*0.046; R1=r*0.10; R2=r*0.175; R3=r*0.30;
     initPts(); initStars();
   }
-  new ResizeObserver(resize).observe(drop);
-  window.addEventListener('orientationchange',()=>setTimeout(resize,200));
-  resize();
-
   // State: idle | hover | drag | imploding | loading | success | error
   let bhState='idle', bhTs=0;
   function setState(s){ bhState=s; bhTs=performance.now(); }
@@ -3468,6 +3464,10 @@ void main(){
     av:0.0008+Math.random()*0.0015, sz:0.4+Math.random()*1.4,
     op:0.2+Math.random()*0.8, col:['#fff','#aaf','#faf','#cff','#ffa'][Math.floor(Math.random()*5)] }; }
   function initStars(){ stars=Array.from({length:50},mkStar); }
+
+  new ResizeObserver(resize).observe(drop);
+  window.addEventListener('orientationchange',()=>setTimeout(resize,200));
+  resize();
 
   // ── Explosion & shockwave ──
   let expl=[], ripples=[], shockwaves=[], lastRipple=0;
@@ -3905,19 +3905,31 @@ function resetAll() {
   let loopTimer = null;
   let gen = 0;             // generation counter — prevents stale stop racing a new start
   let lastType = 0;
+  let lastClickSfx = 0;
 
   // Always call this before scheduling audio — creates and resumes ctx
+  function resumeCtx(c){
+    if(c && c.state === 'suspended'){
+      const p = c.resume();
+      if(p && p.catch) p.catch(()=>{});
+    }
+  }
+
   function getCtx(){
     if(!ctx) ctx = new AC();
-    if(ctx.state === 'suspended') ctx.resume();
+    resumeCtx(ctx);
     return ctx;
+  }
+
+  function unlockAudio(){
+    try{ getCtx(); }catch(e){}
   }
 
   // ── Click pop ──
   window.playClick = function(){
     if(!soundOn) return;
     try{
-      const c=getCtx(), t=c.currentTime;
+      const c=getCtx(), t=c.currentTime+0.02;
       const o=c.createOscillator(), g=c.createGain();
       o.type='sine';
       o.frequency.setValueAtTime(700,t);
@@ -3968,6 +3980,7 @@ function resetAll() {
 
   // ── Upload sound: whoosh + thud + shimmer ──
   window.playUpload = function(){
+    if(!soundOn) return;
     try{
       const c=getCtx(), t=c.currentTime;
       // Whoosh — noise sweep 300→4000 Hz
@@ -4059,7 +4072,7 @@ function resetAll() {
       return t;
     }
 
-    let nextStart=c.currentTime+0.4;
+    let nextStart=c.currentTime+0.06;
     function doLoop(){
       if(!ambPlaying||gen!==myGen) return; // stale generation — stop
       nextStart=scheduleLoop(nextStart);
@@ -4112,10 +4125,25 @@ function resetAll() {
     if(btn) btn.textContent=soundOn?'🔔':'🔕';
   };
 
+  document.addEventListener('pointerdown', unlockAudio, {capture:true,passive:true});
+  document.addEventListener('touchstart', unlockAudio, {capture:true,passive:true});
+  document.addEventListener('keydown', unlockAudio, {capture:true,passive:true});
+
+  function isSoundTarget(e){
+    return e.target.closest('button,a[onclick],.tbtn,.jtype,.cat-chip,.fb,.act,.rbtn,.japply,.jsave,.pn-pill,.dfmt,.jcard');
+  }
+
+  function playUiClick(e){
+    if(!isSoundTarget(e)) return;
+    const now=performance.now();
+    if(now-lastClickSfx<90) return;
+    lastClickSfx=now;
+    playClick();
+  }
+
   // Click sounds on buttons/links
-  document.addEventListener('click',e=>{
-    if(e.target.closest('button,a[onclick],.tbtn,.jtype,.cat-chip,.fb,.act,.rbtn,.japply,.jsave,.pn-pill,.dfmt,.jcard')) playClick();
-  },true);
+  document.addEventListener('pointerdown', playUiClick, true);
+  document.addEventListener('click', e=>{ if(e.detail===0) playUiClick(e); }, true);
 
   // Typing sounds on inputs
   document.addEventListener('input',e=>{
