@@ -879,6 +879,12 @@ textarea.pa::placeholder{color:var(--t3)}
       </div>
       <div class="jgrid" id="jgrid"><p style="color:var(--t2);font-size:14px;padding:20px">Upload your resume to see matched jobs, or search above.</p></div>
 
+      <!-- More Jobs strip — platforms pre-filled with live search keyword -->
+      <div id="moreJobsStrip" style="margin-top:20px;display:none">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--t3);font-weight:700;margin-bottom:10px">FIND MORE JOBS ON</div>
+        <div id="moreJobsBtns" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
     </div>
   </div>
 
@@ -2022,11 +2028,12 @@ async function searchJobs() {
     return true;
   });
 
-  if (!jobs.length) { renderNoResults(); return; }
+  if (!jobs.length) { renderNoResults(); renderMoreJobsStrip(); return; }
 
   const skills = resumeSkillsFound.length ? resumeSkillsFound : [];
   allJobs = jobs.map(j => ({ ...j, match: calcJobMatch(j, skills) }));
   applySortAndRender();
+  renderMoreJobsStrip();
 
 }
 
@@ -2050,6 +2057,59 @@ function renderNoResults() {
 function quickSearch(q) {
   document.getElementById('jsearch').value = q;
   searchJobs();
+}
+
+function renderMoreJobsStrip() {
+  const strip = document.getElementById('moreJobsStrip');
+  const btns  = document.getElementById('moreJobsBtns');
+  if (!strip || !btns) return;
+
+  const kw = document.getElementById('jsearch')?.value.trim() ||
+             (resumeRoles && resumeRoles[0]) || 'software developer';
+  const state = document.getElementById('indiaState')?.value || '';
+  const city  = STATE_CITY[state] || 'India';
+  const q  = encodeURIComponent(kw);
+  const l  = encodeURIComponent(city + ' India');
+  const qs = kw.toLowerCase().replace(/\s+/g, '-');
+  const isFresher = currentJobType === 'fresher';
+  const isIntern  = currentJobType === 'internship';
+  const qf = encodeURIComponent(kw + (isFresher ? ' fresher entry level' : isIntern ? ' intern' : ''));
+
+  const platforms = [
+    { name:'LinkedIn Jobs', color:'#0A66C2', icon:'💼',
+      url:`https://www.linkedin.com/jobs/search/?keywords=${qf}&location=${l}${isFresher||isIntern?'&f_E=1,2':''}` },
+    { name:'Naukri', color:'#FF7555', icon:'🚀',
+      url:`https://www.naukri.com/${qs}-jobs${isFresher?'-for-freshers':''}-in-${(state||'india').toLowerCase().replace(/\s+/g,'-')}` },
+    { name:'Indeed', color:'#2557A7', icon:'🔍',
+      url:`https://in.indeed.com/jobs?q=${qf}&l=${l}` },
+    { name:'Freshersworld', color:'#22c55e', icon:'🌱',
+      url:`https://www.freshersworld.com/jobs/search?keyword=${q}&location=${encodeURIComponent(city)}` },
+    { name:'Internshala', color:'#00A5EC', icon:'🎓',
+      url: isIntern
+        ? `https://internshala.com/internships/${qs}-internship`
+        : `https://internshala.com/jobs/${qs}-jobs` },
+    { name:'Instahyre', color:'#FF4D00', icon:'⚡',
+      url:`https://www.instahyre.com/search-jobs/?q=${q}` },
+    { name:'Cutshort', color:'#5B4FE8', icon:'✂️',
+      url:`https://cutshort.io/jobs?q=${qf}` },
+    { name:'Wellfound', color:'#ef4444', icon:'🦄',
+      url:`https://wellfound.com/jobs?q=${q}&location=${l}` },
+    { name:'Foundit', color:'#7c3aed', icon:'📌',
+      url:`https://www.foundit.in/search-jobs?query=${qf}&location=${encodeURIComponent(city)}` },
+    { name:'Glassdoor', color:'#0CAA41', icon:'🪟',
+      url:`https://www.glassdoor.co.in/Job/jobs.htm?sc.keyword=${qf}` },
+  ];
+
+  btns.innerHTML = platforms.map(p =>
+    `<a href="${p.url}" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:22px;
+               font-size:12px;font-weight:600;text-decoration:none;color:#fff;
+               background:${p.color};opacity:.92;transition:opacity .2s,transform .15s"
+        onmouseover="this.style.opacity=1;this.style.transform='translateY(-2px)'"
+        onmouseout="this.style.opacity=.92;this.style.transform=''">${p.icon} ${p.name}</a>`
+  ).join('');
+
+  strip.style.display = '';
 }
 
 function applySortAndRender() {
@@ -2085,7 +2145,7 @@ function setJobType(type, btn) {
   const cats = document.getElementById('internCats');
   cats.style.display = (type === 'internship') ? 'flex' : 'none';
   searchJobs();
-
+  renderMoreJobsStrip();
 }
 
 function setCat(cat, btn) {
